@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ThreatLens — Desafio de Threat Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+:root {
+  --ink: #0e1117;
+  --ink2: #161b27;
+  --ink3: #1c2235;
+  --line: #242d42;
+  --line2: #2d3850;
+  --fog: #7a86a8;
+  --mist: #b0bcd8;
+  --paper: #d8e0f0;
+  --bright: #edf2ff;
+  --white: #ffffff;
+  --signal: #5b8dee;
+  --signal-glow: rgba(91,141,238,0.15);
+  --signal-edge: rgba(91,141,238,0.35);
+  --warn: #e8a93a;
+  --warn-glow: rgba(232,169,58,0.12);
+  --warn-edge: rgba(232,169,58,0.3);
+  --risk: #e05252;
+  --risk-glow: rgba(224,82,82,0.1);
+  --risk-edge: rgba(224,82,82,0.3);
+  --ok: #3db87a;
+  --ok-edge: rgba(61,184,122,0.3);
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Space Grotesk', sans-serif;
+  --serif: 'Crimson Pro', serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{background:var(--ink);color:var(--paper);font-family:var(--sans);font-size:14px;line-height:1.65;min-height:100vh;}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 80% 60% at 20% 10%,rgba(91,141,238,0.04) 0%,transparent 60%),radial-gradient(ellipse 60% 40% at 80% 80%,rgba(232,169,58,0.03) 0%,transparent 50%);pointer-events:none;z-index:0;}
+.wrap{position:relative;z-index:1;max-width:1080px;margin:0 auto;padding:0 28px 100px;}
+
+/* TOP BAR */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:18px 0 16px;border-bottom:1px solid var(--line);margin-bottom:52px;}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--sans);font-size:14px;font-weight:700;color:var(--bright);letter-spacing:-0.01em;}
+.brand-diamond{width:8px;height:8px;background:var(--signal);border-radius:2px;transform:rotate(45deg);}
+.brand sub{font-size:10px;font-weight:300;color:var(--fog);font-family:var(--mono);letter-spacing:0.1em;}
+.topbar-right{display:flex;align-items:center;gap:16px;font-family:var(--mono);font-size:10px;color:var(--fog);letter-spacing:0.08em;}
+.live-dot{display:inline-block;width:5px;height:5px;background:var(--warn);border-radius:50%;animation:blink 1.8s infinite;margin-right:4px;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+
+/* SCREENS */
+.screen{display:none;}
+.screen.active{display:block;animation:rise 0.35s ease;}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+/* TYPE */
+h1{font-family:var(--sans);font-size:clamp(32px,5vw,52px);font-weight:700;color:var(--white);line-height:1.05;letter-spacing:-0.03em;}
+h2{font-family:var(--sans);font-size:22px;font-weight:600;color:var(--bright);letter-spacing:-0.02em;}
+.eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--mist);margin-bottom:14px;}
+
+/* TAGS */
+.tag{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:3px;font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;}
+.tag-r{background:var(--risk-glow);color:var(--risk);border:1px solid var(--risk-edge);}
+.tag-w{background:var(--warn-glow);color:var(--warn);border:1px solid var(--warn-edge);}
+.tag-s{background:var(--signal-glow);color:var(--signal);border:1px solid var(--signal-edge);}
+.tag-n{background:rgba(74,85,120,0.15);color:var(--fog);border:1px solid var(--line2);}
+.tag-ok{background:rgba(61,184,122,0.08);color:var(--ok);border:1px solid var(--ok-edge);}
+
+/* PANEL */
+.panel{background:var(--ink2);border:1px solid var(--line);border-radius:10px;padding:28px;}
+.panel-warn{border-color:var(--warn-edge);}
+.panel-risk{border-color:var(--risk-edge);}
+.panel-ok{border-color:var(--ok-edge);}
+
+/* FORM */
+.field{margin-bottom:22px;}
+.field label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--mist);margin-bottom:8px;}
+.field input{width:100%;background:var(--ink3);border:1px solid var(--line2);border-radius:6px;padding:11px 14px;color:var(--bright);font-family:var(--sans);font-size:14px;outline:none;transition:border-color 0.2s,box-shadow 0.2s;}
+.field input:focus{border-color:var(--signal);box-shadow:0 0 0 3px var(--signal-glow);}
+.field input::placeholder{color:var(--fog);}
+
+/* BTN */
+.btn{display:inline-flex;align-items:center;gap:8px;padding:11px 24px;border:none;border-radius:6px;font-family:var(--sans);font-size:14px;font-weight:600;cursor:pointer;transition:all 0.18s;}
+.btn-primary{background:var(--signal);color:#fff;}
+.btn-primary:hover{background:#6e9ef0;transform:translateY(-1px);box-shadow:0 4px 20px rgba(91,141,238,0.3);}
+.btn-ghost{background:transparent;color:var(--signal);border:1px solid var(--signal-edge);}
+.btn-ghost:hover{background:var(--signal-glow);}
+.btn-warn{background:var(--warn);color:var(--ink);font-weight:700;}
+.btn-warn:hover{background:#f0b848;transform:translateY(-1px);}
+
+.hr{border:none;border-top:1px solid var(--line);margin:36px 0;}
+
+/* SECTION HEAD */
+.sec-head{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
+.sec-num{font-family:var(--mono);font-size:9px;color:var(--fog);letter-spacing:0.1em;border:1px solid var(--line2);padding:2px 7px;border-radius:3px;}
+.sec-label{font-family:var(--mono);font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--mist);}
+
+/* IOC TABLE */
+.ioc-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;}
+.ioc-table thead tr{border-bottom:1px solid var(--line2);}
+.ioc-table th{padding:8px 12px;text-align:left;font-size:9px;font-weight:600;letter-spacing:0.15em;text-transform:uppercase;color:var(--fog);}
+.ioc-table td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;}
+.ioc-table tr:last-child td{border-bottom:none;}
+.ioc-table tr:hover td{background:rgba(255,255,255,0.015);}
+.iv{color:var(--bright);word-break:break-all;}
+.ic{color:var(--fog);font-size:10px;margin-top:3px;}
+
+/* LOG */
+.log{background:#080b10;border:1px solid var(--line);border-radius:8px;padding:18px 20px;font-family:var(--mono);font-size:11px;line-height:2;overflow-x:auto;}
+.lt{color:var(--line2);}
+.lh{color:var(--signal);}
+.lw{color:var(--warn);}
+.lr{color:var(--risk);}
+.lg{color:var(--ok);}
+.ld{color:#2a3050;}
+
+/* OSINT */
+.osint-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.orow{display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line);font-size:12px;gap:12px;}
+.orow:last-child{border-bottom:none;}
+.ok2{color:var(--mist);font-family:var(--mono);font-size:10px;flex-shrink:0;}
+.ov{color:var(--paper);text-align:right;}
+
+/* QUESTION */
+.q-block{background:var(--ink2);border:1px solid var(--line);border-radius:10px;padding:26px;margin-bottom:14px;}
+.q-num{font-family:var(--mono);font-size:10px;color:var(--fog);margin-bottom:10px;letter-spacing:0.1em;}
+.q-text{font-size:15px;font-weight:500;color:var(--bright);margin-bottom:18px;line-height:1.5;}
+.opts{display:flex;flex-direction:column;gap:8px;}
+.opt{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;background:var(--ink3);border:1px solid var(--line);border-radius:6px;cursor:pointer;transition:all 0.15s;user-select:none;}
+.opt:hover{border-color:var(--line2);background:rgba(91,141,238,0.05);}
+.opt.picked{border-color:var(--signal);background:var(--signal-glow);}
+.opt-ltr{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--white);min-width:22px;margin-top:2px;flex-shrink:0;letter-spacing:0.05em;}
+.opt.picked .opt-ltr{color:var(--signal);}
+.opt-txt{font-size:14px;font-weight:500;color:var(--bright);line-height:1.6;}
+.opt.picked .opt-txt{color:var(--white);}
+
+/* RESULTS */
+.result-row{display:flex;align-items:center;gap:28px;margin-bottom:32px;}
+.score-box{width:96px;height:96px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--ink3);border:2px solid var(--line2);flex-shrink:0;}
+.score-n{font-family:var(--sans);font-size:40px;font-weight:700;color:var(--white);line-height:1;}
+.score-d{font-family:var(--mono);font-size:10px;color:var(--fog);margin-top:2px;}
+
+.review-card{background:var(--ink2);border:1px solid var(--line);border-radius:8px;padding:20px;margin-bottom:12px;}
+.review-card.hit{border-left:3px solid var(--ok);}
+.review-card.miss{border-left:3px solid var(--risk);}
+.rq{font-size:12px;color:var(--fog);margin-bottom:8px;}
+.ra{font-family:var(--mono);font-size:11px;margin-bottom:3px;}
+.ra-ok{color:var(--ok);}
+.ra-miss{color:var(--risk);}
+.rexp{margin-top:12px;padding:12px 14px;background:var(--ink3);border-radius:6px;font-size:12px;color:var(--mist);line-height:1.7;}
+.rexp strong{color:var(--warn);}
+
+/* CERT */
+#cert-render{background:#faf7f0;border-radius:12px;padding:64px;max-width:860px;margin:0 auto;position:relative;overflow:hidden;color:#18181b;}
+.cert-frame{position:absolute;inset:14px;border:1.5px solid #bfa96a;border-radius:6px;pointer-events:none;}
+.cert-frame2{position:absolute;inset:20px;border:1px solid rgba(191,169,106,0.3);border-radius:3px;pointer-events:none;}
+.cert-bg{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-12deg);font-family:var(--sans);font-size:100px;font-weight:700;color:rgba(191,169,106,0.05);white-space:nowrap;pointer-events:none;letter-spacing:-0.05em;}
+.cert-top{text-align:center;position:relative;margin-bottom:28px;}
+.cert-label{font-family:var(--mono);font-size:10px;letter-spacing:0.28em;text-transform:uppercase;color:#9a7f40;margin-bottom:14px;}
+.cert-h1{font-family:var(--sans);font-size:38px;font-weight:700;color:#18181b;letter-spacing:-0.03em;}
+.cert-h2{font-family:var(--serif);font-size:15px;color:#6a6070;margin-top:4px;font-style:italic;}
+.cert-sep{border:none;border-top:1px solid rgba(191,169,106,0.5);margin:24px 0;}
+.cert-mid{text-align:center;position:relative;}
+.cert-certifica{font-family:var(--mono);font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:#9a7f40;margin-bottom:6px;}
+.cert-nome{font-family:var(--sans);font-size:40px;font-weight:700;color:#18181b;letter-spacing:-0.03em;margin-bottom:18px;line-height:1.05;}
+.cert-badge{display:inline-block;border:1px solid #bfa96a;border-radius:4px;padding:6px 18px;font-family:var(--mono);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#9a7f40;margin-bottom:20px;}
+.cert-corpo{font-family:var(--serif);font-size:15px;color:#3a3540;line-height:1.9;max-width:540px;margin:0 auto 28px;}
+.cert-rodape{display:flex;align-items:flex-end;justify-content:space-between;margin-top:20px;}
+.cert-dados{display:flex;gap:36px;}
+.cert-dado-label{font-family:var(--mono);font-size:9px;color:#9a7f40;letter-spacing:0.12em;text-transform:uppercase;}
+.cert-dado-val{font-family:var(--mono);font-size:11px;color:#3a3540;margin-top:3px;}
+.cert-selo{width:88px;height:88px;border-radius:50%;border:2.5px solid #bfa96a;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:rgba(191,169,106,0.05);}
+.cert-selo-ico{font-size:22px;margin-bottom:2px;}
+.cert-selo-txt{font-family:var(--mono);font-size:7px;color:#9a7f40;letter-spacing:0.06em;line-height:1.6;}
+.cert-assin{text-align:center;}
+.cert-assin-linha{width:180px;height:1px;background:rgba(191,169,106,0.6);margin-bottom:8px;}
+.cert-assin-nome{font-family:var(--sans);font-size:14px;font-weight:700;color:#18181b;}
+.cert-assin-cargo{font-family:var(--serif);font-size:12px;color:#9a7f40;font-style:italic;margin-top:2px;}
+
+/* BLOCKED */
+.blocked{text-align:center;padding:44px;background:var(--ink2);border:1px solid var(--risk-edge);border-radius:10px;margin-top:24px;}
+
+/* UTILS */
+.mb-12{margin-bottom:12px;}.mb-16{margin-bottom:16px;}.mb-24{margin-bottom:24px;}.mb-32{margin-bottom:32px;}.mb-48{margin-bottom:48px;}
+.mt-8{margin-top:8px;}.mt-16{margin-top:16px;}.mt-24{margin-top:24px;}.mt-28{margin-top:28px;}.mt-32{margin-top:32px;}
+.flex{display:flex;}.items-c{align-items:center;}.jc-sb{justify-content:space-between;}.gap-8{gap:8px;}
+
+@media(max-width:768px){
+  .wrap{padding:0 16px 80px;}
+  .topbar{margin-bottom:32px;}
+  .topbar-right span:last-child{display:none;}
+  h1{font-size:28px;}
+  h2{font-size:18px;}
+  .panel{padding:18px;}
+  .flex.items-c.jc-sb{flex-direction:column;align-items:flex-start;gap:12px;}
+  .flex.items-c.jc-sb .btn{align-self:flex-start;}
+  .ioc-table thead{display:none;}
+  .ioc-table tbody{display:block;}
+  .ioc-table tr{display:flex;flex-direction:column;padding:12px;border-bottom:1px solid var(--line);gap:6px;}
+  .ioc-table tr:last-child{border-bottom:none;}
+  .ioc-table td{display:block;padding:0;border:none;font-size:12px;}
+  .ioc-table td:last-child{margin-top:4px;}
+  .iv{font-size:11px;}
+  .log{font-size:10px;line-height:1.9;padding:12px;}
+  .osint-grid{grid-template-columns:1fr;}
+  .q-block{padding:18px;}
+  .q-text{font-size:14px;}
+  .opt{padding:10px 12px;}
+  .opt-txt{font-size:13px;}
+  .result-row{flex-direction:column;align-items:flex-start;gap:16px;}
+  .review-card{padding:14px;}
+  .rexp{font-size:12px;}
+  #cert-render{padding:28px 20px;}
+  .cert-h1{font-size:22px;}
+  .cert-h2{font-size:13px;}
+  .cert-nome{font-size:24px;}
+  .cert-corpo{font-size:13px;}
+  .cert-rodape{flex-direction:column;gap:20px;align-items:center;text-align:center;}
+  .cert-dados{flex-direction:column;gap:12px;align-items:center;}
+  .cert-assin-linha{margin:0 auto 8px;}
+  .btn{padding:10px 18px;font-size:13px;}
+  .score-box{width:80px;height:80px;}
+  .score-n{font-size:32px;}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-diamond"></div>
+      ThreatLens <sub>// CTI Platform</sub>
+    </div>
+    <div class="topbar-right">
+      <span><span class="live-dot"></span>AO VIVO</span>
+      <span>REF: INC-2024-0831</span>
+    </div>
+  </header>
+
+  <!-- ══════ TELA 0: INTRO -->
+  <div class="screen active" id="s0">
+    <div class="mb-32">
+      <div class="eyebrow">// exercício operacional · tlp:amber</div>
+      <h1>Desafio de<br>Threat Intelligence</h1>
+      <p style="margin-top:18px;max-width:520px;font-size:15px;color:var(--bright);line-height:1.75;">
+        Análise de Indicadores de Comprometimento.<br>
+        <span style="color:var(--mist);font-size:13px;">Alta dificuldade. Sem atalhos. Exige correlação.</span>
+      </p>
+    </div>
+
+    <div class="panel panel-warn mb-32" style="max-width:640px;">
+      <div class="eyebrow">// briefing operacional</div>
+      <p style="font-size:14px;color:var(--bright);line-height:1.8;">
+        Você recebeu um conjunto de indicadores coletados de múltiplas fontes entre 2024-08-28 e 2024-08-31.
+        <strong style="color:var(--bright);">Não há confirmação de incidente.</strong>
+        Seu papel é analisar, correlacionar e determinar se há atividade maliciosa — e qual.<br><br>
+        Os dados incluem ruído deliberado, falsos positivos e IOCs que parecem exatamente o que não são.
+        Se a resposta parece óbvia, é o distrator fazendo o trabalho dele.<br>
+        <span style="color:var(--mist);font-size:12px;font-family:var(--mono);">// Bem-vindo ao CTI real.</span>
+      </p>
+    </div>
+
+    <div class="panel mb-32" style="max-width:480px;">
+      <div class="eyebrow">// identificação do analista</div>
+      <div class="field">
+        <label>Nome completo</label>
+        <input type="text" id="inp-nome" placeholder="Ex: Ana Oliveira" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Pronome</label>
+        <input type="text" id="inp-pronome" placeholder="ela/dela · ele/dele · elu/delu">
+      </div>
+      <div class="field">
+        <label>Data da análise</label>
+        <input type="date" id="inp-data">
+      </div>
+    </div>
+
+    <button class="btn btn-primary" onclick="iniciar()">Iniciar análise →</button>
+  </div>
+
+  <!-- ══════ TELA 1: IOCs -->
+  <div class="screen" id="s1">
+    <div class="flex items-c jc-sb mb-32">
+      <div>
+        <div class="eyebrow">// conjunto de indicadores · inc-2024-0831</div>
+        <h2>Dados de Threat Intelligence</h2>
+      </div>
+      <button class="btn btn-ghost" id="btn-ioc-action" onclick="irPerguntas()">Ir para análise →</button>
+    </div>
+
+    <div class="panel panel-warn mb-24">
+      <p style="font-size:13px;color:var(--warn);line-height:1.7;">
+        <strong>Nota do analista sênior:</strong> IOCs coletados de EDR, proxy corporativo e feed externo.
+        Nem todos são relevantes. Alguns estão aqui para te fazer perder tempo.
+        Outros parecem inofensivos e não são. Boa leitura.
+      </p>
+    </div>
+
+    <!-- IPs -->
+    <div class="mt-28 mb-16">
+      <div class="sec-head"><span class="sec-num">01</span><span class="sec-label">Endereços IP</span></div>
+      <div class="panel" style="padding:0;overflow:hidden;">
+        <table class="ioc-table">
+          <thead><tr><th>Endereço</th><th>Contexto</th><th>Classificação</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><div class="iv">185.220.101.47</div><div class="ic">Saída porta 443 · 23:47h</div></td>
+              <td style="color:var(--mist);font-size:12px;">Destino de query DNS suspeita · fora do horário comercial</td>
+              <td><span class="tag tag-w">⚑ Suspeito</span></td>
+            </tr>
+            <tr>
+              <td><div class="iv">104.21.234.18</div><div class="ic">DNS · 3x/dia · regular</div></td>
+              <td style="color:var(--mist);font-size:12px;">CDN conhecida. Respira.</td>
+              <td><span class="tag tag-n">CDN</span></td>
+            </tr>
+            <tr>
+              <td><div class="iv">45.142.212.100</div><div class="ic">ASN europeu · sem histórico</div></td>
+              <td style="color:var(--mist);font-size:12px;">TLS sem SNI · porta 443</td>
+              <td><span class="tag tag-r">⚠ Alto risco</span></td>
+            </tr>
+            <tr>
+              <td><div class="iv">8.8.8.8</div><div class="ic">Consultas DNS · freq. normal</div></td>
+              <td style="color:var(--mist);font-size:12px;">DNS público do Google. Se você marcou isso como IoC, vá descansar.</td>
+              <td><span class="tag tag-ok">Legítimo</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- DOMÍNIOS -->
+    <div class="mt-28 mb-16">
+      <div class="sec-head"><span class="sec-num">02</span><span class="sec-label">Domínios</span></div>
+      <div class="panel" style="padding:0;overflow:hidden;">
+        <table class="ioc-table">
+          <thead><tr><th>Domínio</th><th>Contexto</th><th>Classificação</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><div class="iv">rn1crosoftonline.com</div><div class="ic">Registrado há 9 dias · WHOIS privado</div></td>
+              <td style="color:var(--mist);font-size:12px;">Typosquatting de microsoftonline · infra compartilhada</td>
+              <td><span class="tag tag-r">⚠ Typosquat</span></td>
+            </tr>
+            <tr>
+              <td><div class="iv">login.microsoftonline.com</div><div class="ic">Auth SSO corporativa</div></td>
+              <td style="color:var(--mist);font-size:12px;">Domínio legítimo da Microsoft. Não é o mesmo de cima. Olhe com calma.</td>
+              <td><span class="tag tag-ok">Legítimo</span></td>
+            </tr>
+            <tr>
+              <td><div class="iv">cdn-telemetry.azureedge.net</div><div class="ic">Volume alto · múltiplos hosts</div></td>
+              <td style="color:var(--mist);font-size:12px;">Infra Azure legítima. Parece ruim. Não é. Distrator clássico.</td>
+              <td><span class="tag tag-s">Ambíguo</span></td>
+            </tr>
+            <tr>
+              <td><div class="iv">update-srv.ddns.net</div><div class="ic">DDNS · beacon 300s · jitter 0</div></td>
+              <td style="color:var(--mist);font-size:12px;">Intervalo fixo sem variação · padrão de implante</td>
+              <td><span class="tag tag-w">⚑ Atenção</span></td>
+            </tr>
+            <tr>
+              <td><div class="iv">api.ipify.org</div><div class="ic">IP lookup externo · 4x/hora</div></td>
+              <td style="color:var(--mist);font-size:12px;">Serviço legítimo — mas workstation verificando próprio IP externo 4x/h é uma pergunta válida</td>
+              <td><span class="tag tag-w">Suspeito-ctx</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- HASHES -->
+    <div class="mt-28 mb-16">
+      <div class="sec-head"><span class="sec-num">03</span><span class="sec-label">Hashes de Arquivos</span></div>
+      <div class="panel" style="padding:0;overflow:hidden;">
+        <table class="ioc-table">
+          <thead><tr><th>Hash</th><th>Arquivo / Caminho</th><th>Classificação</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><div class="iv" style="font-size:10px;">d41d8cd98f00b204e9800998ecf8427e</div><div class="ic">MD5</div></td>
+              <td style="color:var(--mist);font-size:12px;">svchost_backup.exe · C:\Users\Public\ · 0 bytes</td>
+              <td><span class="tag tag-r">⚠ Evasão</span></td>
+            </tr>
+            <tr>
+              <td><div class="iv" style="font-size:10px;">3395856CE81F2B7382DEE72602F798B642F14140</div><div class="ic">SHA1</div></td>
+              <td style="color:var(--mist);font-size:12px;">putty.exe · C:\Tools\ · hash original confirmado</td>
+              <td><span class="tag tag-ok">Legítimo*</span></td>
+            </tr>
+            <tr>
+              <td><div class="iv" style="font-size:10px;word-break:break-all;">b14d8c5f2e9a3c761f0d4e2b8a5f1c9d3e7a2b4f6c8d0e1a3b5c7d9e1f2a4b6</div><div class="ic">SHA256</div></td>
+              <td style="color:var(--mist);font-size:12px;">OneDriveSetup.exe · %TEMP%\ · não bate com instalador oficial</td>
+              <td><span class="tag tag-r">⚠ Hash mismatch</span></td>
+            </tr>
+            <tr>
+              <td><div class="iv" style="font-size:10px;word-break:break-all;">e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855</div><div class="ic">SHA256</div></td>
+              <td style="color:var(--mist);font-size:12px;">readme.txt · Desktop\ · arquivo de texto vazio. Nada aqui.</td>
+              <td><span class="tag tag-n">Ruído</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- URLs -->
+    <div class="mt-28 mb-16">
+      <div class="sec-head"><span class="sec-num">04</span><span class="sec-label">URLs — Proxy Log</span></div>
+      <div class="panel" style="padding:0;overflow:hidden;">
+        <table class="ioc-table">
+          <thead><tr><th>URL</th><th>Contexto</th><th>Classificação</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><div class="iv" style="font-size:10px;">hxxps://rn1crosoftonline[.]com/oauth2/authorize?client_id=00000002</div><div class="ic">bsilva@empresa.com.br · 23:51:04</div></td>
+              <td style="color:var(--mist);font-size:12px;">Credential harvest · redirect 302</td>
+              <td><span class="tag tag-r">⚠ Phishing</span></td>
+            </tr>
+            <tr>
+              <td><div class="iv" style="font-size:10px;">hxxp://update-srv.ddns[.]net/gate.php?uid=WS-BSILVA-01&amp;v=2</div><div class="ic">Início: 23:52:12 · intervalo 300s</div></td>
+              <td style="color:var(--mist);font-size:12px;">Beaconing com UID de host · padrão C2</td>
+              <td><span class="tag tag-r">⚠ C2</span></td>
+            </tr>
+            <tr>
+              <td><div class="iv" style="font-size:10px;">https://cdn-telemetry.azureedge.net/v2/collect</div><div class="ic">Múltiplos hosts · padrão regular</div></td>
+              <td style="color:var(--mist);font-size:12px;">Volume normal em toda a rede corporativa</td>
+              <td><span class="tag tag-ok">Legítimo</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- USER-AGENTS -->
+    <div class="mt-28 mb-16">
+      <div class="sec-head"><span class="sec-num">05</span><span class="sec-label">User-Agents HTTP</span></div>
+      <div class="panel" style="padding:0;overflow:hidden;">
+        <table class="ioc-table">
+          <thead><tr><th>User-Agent</th><th>Contexto</th><th>Classificação</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><div class="iv" style="font-size:10px;">Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/117</div></td>
+              <td style="color:var(--mist);font-size:12px;">Browser padrão · múltiplos hosts</td>
+              <td><span class="tag tag-n">Comum</span></td>
+            </tr>
+            <tr>
+              <td><div class="iv" style="font-size:10px;">python-requests/2.31.0</div><div class="ic">Origem: WS-BSILVA-01 · dst: update-srv.ddns.net</div></td>
+              <td style="color:var(--mist);font-size:12px;">Script Python fazendo POST para DDNS suspeito. Não é seu dev local.</td>
+              <td><span class="tag tag-r">⚠ Implante</span></td>
+            </tr>
+            <tr>
+              <td><div class="iv" style="font-size:10px;">Microsoft-CryptoAPI/10.0</div></td>
+              <td style="color:var(--mist);font-size:12px;">Verificação de CRL · múltiplos hosts · esperado</td>
+              <td><span class="tag tag-n">Ruído</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- LOGS -->
+    <div class="mt-28 mb-16">
+      <div class="sec-head"><span class="sec-num">06</span><span class="sec-label">Log Events — EDR + Proxy</span></div>
+      <div class="log">
+        <div><span class="lt">2024-08-31 23:47:02</span> <span class="lh">[WS-BSILVA-01]</span> <span class="lg">DNS_QUERY</span> <span class="lw">rn1crosoftonline.com</span> → <span class="lr">185.220.101.47</span></div>
+        <div><span class="lt">2024-08-31 23:47:04</span> <span class="lh">[WS-BSILVA-01]</span> HTTP_GET login.microsoftonline.com <span class="lg">200 OK</span> <span class="ld">// auth legítima anterior — mesmo usuário</span></div>
+        <div><span class="lt">2024-08-31 23:51:04</span> <span class="lh">[WS-BSILVA-01]</span> <span class="lr">HTTP_GET rn1crosoftonline.com/oauth2/authorize → 302 redirect</span></div>
+        <div><span class="lt">2024-08-31 23:51:09</span> <span class="lh">[WS-BSILVA-01]</span> <span class="lw">CREDENTIAL_SUBMIT</span> user: bsilva@empresa.com.br <span class="ld">// registrado no proxy</span></div>
+        <div><span class="lt">2024-08-31 23:52:12</span> <span class="lh">[WS-BSILVA-01]</span> <span class="lr">PROCESS_CREATE</span> parent: explorer.exe → child: <span class="lw">OneDriveSetup.exe</span> (hash mismatch)</div>
+        <div><span class="lt">2024-08-31 23:52:15</span> <span class="lh">[WS-BSILVA-01]</span> <span class="lr">HTTP_POST update-srv.ddns.net/gate.php?uid=WS-BSILVA-01&amp;v=2</span> UA: <span class="lw">python-requests/2.31.0</span></div>
+        <div><span class="lt">2024-08-31 23:52:15</span> <span class="lh">[WS-BSILVA-01]</span> <span class="lw">NET_CONN</span> dst: 45.142.212.100:443 <span class="ld">// TLS handshake sem SNI</span></div>
+        <div><span class="lt">2024-08-31 23:57:15</span> <span class="lh">[WS-BSILVA-01]</span> <span class="lr">HTTP_POST update-srv.ddns.net/gate.php</span> <span class="ld">// +300s</span></div>
+        <div><span class="lt">2024-09-01 00:02:15</span> <span class="lh">[WS-BSILVA-01]</span> <span class="lr">HTTP_POST update-srv.ddns.net/gate.php</span> <span class="ld">// +300s</span></div>
+        <div><span class="lt">2024-09-01 00:02:16</span> <span class="lh">[WS-BSILVA-01]</span> <span class="lg">DNS_QUERY</span> api.ipify.org <span class="ld">// 4ª consulta na última hora. Workstation curiosa.</span></div>
+        <div><span class="lt">2024-09-01 00:02:18</span> <span class="lh">[DC-CORP-01]</span>   <span class="ld">// zero eventos relevantes neste servidor. Zero.</span></div>
+        <div><span class="lt">2024-09-01 00:07:19</span> <span class="lh">[WS-BSILVA-01]</span> <span class="ld">FILE_WRITE C:\Users\Public\svchost_backup.exe (0 bytes) // evasão ou placeholder</span></div>
+      </div>
+    </div>
+
+    <!-- OSINT -->
+    <div class="mt-28" style="margin-bottom:40px;">
+      <div class="sec-head"><span class="sec-num">07</span><span class="sec-label">Contexto OSINT</span></div>
+      <div class="osint-grid">
+        <div class="panel">
+          <div class="eyebrow mb-12">rn1crosoftonline.com</div>
+          <div class="orow"><span class="ok2">Registrado em</span><span class="ov">2024-08-22 (9 dias antes)</span></div>
+          <div class="orow"><span class="ok2">Registrar</span><span class="ov">Namecheap · WHOIS privado</span></div>
+          <div class="orow"><span class="ok2">Infra compartilhada</span><span class="ov">45.142.212.100 · 3 outros phishing</span></div>
+          <div class="orow"><span class="ok2">TLS cert</span><span class="ov">Let's Encrypt · emitido 2024-08-22</span></div>
+          <div class="orow"><span class="ok2">ASN</span><span class="ov">AS208761 — Serverius DC, NL</span></div>
+        </div>
+        <div class="panel">
+          <div class="eyebrow mb-12">update-srv.ddns.net</div>
+          <div class="orow"><span class="ok2">Tipo</span><span class="ov">DDNS ativo · dinâmico</span></div>
+          <div class="orow"><span class="ok2">IP atual</span><span class="ov">185.220.101.47</span></div>
+          <div class="orow"><span class="ok2">ASN</span><span class="ov">AS60729 · Tor exit node histórico</span></div>
+          <div class="orow"><span class="ok2">Beacon interval</span><span class="ov">300s fixo · jitter: 0s</span></div>
+          <div class="orow"><span class="ok2">Host origem</span><span class="ov">WS-BSILVA-01 · workstation</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex items-c jc-sb">
+      <p style="color:var(--fog);font-size:13px;font-family:var(--mono);">// Correlacionou tudo? Então vá.</p>
+      <button class="btn btn-primary" onclick="irPerguntas()">Iniciar análise →</button>
+    </div>
+  </div>
+
+  <!-- ══════ TELA 2: PERGUNTAS -->
+  <div class="screen" id="s2">
+    <div class="flex items-c jc-sb mb-32">
+      <div>
+        <div class="eyebrow">// fase 02 · questionário de inteligência</div>
+        <h2>Análise dos Indicadores</h2>
+        <p style="color:var(--mist);font-size:13px;margin-top:8px;font-family:var(--mono);">6 questões. Nenhuma se responde sozinha. Se você está respondendo sem olhar os IOCs, está fazendo errado.</p>
+      </div>
+      <button class="btn btn-ghost" onclick="mostrar('s1')" style="flex-shrink:0;">← Rever IOCs</button>
+    </div>
+    <div id="q-container"></div>
+    <div class="mt-24">
+      <button class="btn btn-warn" onclick="enviar()">⊞ Corrigir análise</button>
+    </div>
+  </div>
+
+  <!-- ══════ TELA 3: RESULTADO -->
+  <div class="screen" id="s3">
+    <div class="eyebrow mb-16">// fase 03 · relatório do analista</div>
+    <h2 class="mb-24">Análise do Analista</h2>
+    <div class="result-row">
+      <div class="score-box" id="score-box">
+        <div class="score-n" id="score-n">0</div>
+        <div class="score-d">de 6</div>
+      </div>
+      <div>
+        <div class="eyebrow mb-12">Classificação</div>
+        <div id="cls-nome" style="font-family:var(--sans);font-size:24px;font-weight:700;color:var(--white);margin-bottom:6px;">—</div>
+        <div id="cls-desc" style="font-size:13px;color:var(--fog);max-width:420px;">—</div>
+      </div>
+    </div>
+    <div class="hr"></div>
+    <div id="review-list"></div>
+    <div class="hr"></div>
+    <div id="cert-zone"></div>
+    <div class="hr"></div>
+    <div style="text-align:center;">
+      <button class="btn btn-ghost" onclick="refazer()">↺ Refazer o desafio</button>
+    </div>
+  </div>
+
+  <!-- ══════ TELA 4: CERTIFICADO -->
+  <div class="screen" id="s4">
+    <div class="eyebrow mb-16">// certificado de conclusão</div>
+    <h2 class="mb-24">Certificado gerado</h2>
+
+    <div id="cert-render">
+      <div class="cert-frame"></div>
+      <div class="cert-frame2"></div>
+      <div class="cert-bg">ThreatLens</div>
+
+      <div class="cert-top">
+        <div class="cert-label">Mariana BS - Be Safe · Plataforma ThreatLens · Exercício Operacional</div>
+        <div class="cert-h1">Certificado de Conclusão</div>
+        <div class="cert-h2">Threat Intelligence — Análise de Indicadores de Comprometimento</div>
+      </div>
+
+      <hr class="cert-sep">
+
+      <div class="cert-mid">
+        <div class="cert-certifica">Certificamos que</div>
+        <div class="cert-nome" id="c-nome">—</div>
+        <div><div class="cert-badge">Desafio de Threat Intelligence — Análise de IOCs</div></div>
+        <div class="cert-corpo" id="c-corpo">—</div>
+      </div>
+
+      <div class="cert-rodape">
+        <div class="cert-dados">
+          <div>
+            <div class="cert-dado-label">Data</div>
+            <div class="cert-dado-val" id="c-data">—</div>
+          </div>
+          <div>
+            <div class="cert-dado-label">ID do Certificado</div>
+            <div class="cert-dado-val" id="c-id">—</div>
+          </div>
+          <div>
+            <div class="cert-dado-label">Aproveitamento</div>
+            <div class="cert-dado-val">6 / 6 · 100%</div>
+          </div>
+        </div>
+        <div class="cert-selo">
+          <div class="cert-selo-ico">🛡</div>
+          <div class="cert-selo-txt">ANÁLISE<br>COMPLETA<br>BE SAFE</div>
+        </div>
+        <div class="cert-assin">
+          <div class="cert-assin-linha"></div>
+          <div class="cert-assin-nome">Mariana BS - Be Safe</div>
+          <div class="cert-assin-cargo">Threat Intelligence</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-24" style="text-align:center;">
+      <button class="btn btn-warn" onclick="baixarCert()">↓ Baixar certificado em PNG</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+var questoes = [
+  {
+    id: 1,
+    num: "QUESTÃO 01",
+    texto: "Considerando o padrão de comunicação nos logs, o User-Agent identificado e a sequência temporal dos eventos, qual tipo de ataque descreve mais adequadamente o que ocorreu na workstation WS-BSILVA-01?",
+    opcoes: [
+      { l: "A", t: "Ransomware com exfiltração via HTTPS: o hash de arquivo vazio e o processo OneDriveSetup.exe indicam preparação para criptografia e saída de dados por canal legítimo." },
+      { l: "B", t: "Spear-phishing com entrega de implante C2: o usuário acessou typosquatting que imitava autenticação Microsoft e, logo depois, processo com hash mismatch iniciou beaconing via script Python." },
+      { l: "C", t: "Ataque de cadeia de suprimentos via CDN: o domínio azureedge.net foi comprometido e entregou payload malicioso mascarado como telemetria." },
+      { l: "D", t: "Exploração de vulnerabilidade em PuTTY: o binário em C:\\Tools\\ foi substituído por versão modificada que estabelece canal reverso persistente." }
+    ],
+    correta: "B",
+    exp: "A correlação correta exige observar a cadeia: (1) DNS query para rn1crosoftonline.com — typosquatting; (2) credential submit no proxy às 23:51:09; (3) 3 segundos depois, OneDriveSetup.exe com hash mismatch criado pelo explorer.exe; (4) beaconing com UA python-requests/2.31.0. O cdn-telemetry.azureedge.net tem tráfego normal em múltiplos hosts — é distrator. PuTTY tem hash original confirmado. svchost_backup.exe com 0 bytes é evasão, não ransomware. <strong>Só a alternativa B conecta phishing → credencial → implante → C2.</strong>"
+  },
+  {
+    id: 2,
+    num: "QUESTÃO 02",
+    texto: "Qual técnica MITRE ATT&CK — ou combinação delas — melhor representa o comportamento do adversário, especialmente o mecanismo de persistência de comunicação e a técnica de mascaramento de artefatos?",
+    opcoes: [
+      { l: "A", t: "T1566.002 (Spear-phishing via Link) + T1071.001 (Web Protocols) + T1036.005 (Match Legitimate Name or Location)" },
+      { l: "B", t: "T1059.006 (Python) + T1190 (Exploit Public-Facing Application) + T1027 (Obfuscated Files)" },
+      { l: "C", t: "T1566.001 (Spear-phishing via Attachment) + T1105 (Ingress Tool Transfer) + T1048 (Exfiltration Over Alternative Protocol)" },
+      { l: "D", t: "T1078 (Valid Accounts) + T1021.001 (Remote Desktop Protocol) + T1486 (Data Encrypted for Impact)" }
+    ],
+    correta: "A",
+    exp: "Sequência ATT&CK correta: <strong>T1566.002</strong> — link de phishing no typosquatting; <strong>T1071.001</strong> — beaconing usa HTTP/HTTPS (gate.php e porta 443); <strong>T1036.005</strong> — OneDriveSetup.exe com hash mismatch é mascaramento por nome. A opção B cita T1059.006 (Python) corretamente, mas T1190 (exploit de serviço público) não se aplica. C cita attachment — errado, foi link. D cita RDP e ransomware, nenhum desses padrões aparece nos dados."
+  },
+  {
+    id: 3,
+    num: "QUESTÃO 03",
+    texto: "Analisando os identificadores de hosts nos logs, os domínios acessados e o contexto OSINT, qual é o ativo comprometido e qual o vetor inicial mais suportado pelas evidências?",
+    opcoes: [
+      { l: "A", t: "DC-CORP-01 comprometido via exploração de serviço LDAP; WS-BSILVA-01 é apenas pivô lateral já estabelecido pelo adversário." },
+      { l: "B", t: "WS-BSILVA-01 comprometida após bsilva@empresa.com.br submeter credenciais em página de phishing; acesso ao DC-CORP-01 não está evidenciado nos logs." },
+      { l: "C", t: "WS-BSILVA-01 comprometida via download drive-by a partir de cdn-telemetry.azureedge.net, sequestrado pelo adversário." },
+      { l: "D", t: "Múltiplos ativos comprometidos: WS-BSILVA-01 e DC-CORP-01 mostram comunicação anômala correlacionada no mesmo intervalo." }
+    ],
+    correta: "B",
+    exp: "Os logs são explícitos: todos os eventos anômalos originam de <strong>WS-BSILVA-01</strong>. O DC-CORP-01 registra literalmente zero eventos relevantes — foi inserido para induzir erro de quem quer ver movimento lateral onde não existe. O cdn-telemetry.azureedge.net aparece com padrão normal em múltiplos hosts. A submissão de credenciais às 23:51:09 está no proxy log com usuário identificado. <strong>WS-BSILVA-01 via phishing é o único vetor suportado pelos dados.</strong>"
+  },
+  {
+    id: 4,
+    num: "QUESTÃO 04",
+    texto: "Considerando apenas indícios de impersonação de marca e coleta inicial de credenciais, qual IOC isolado sustenta com maior confiança a abertura imediata de investigação por phishing?",
+    opcoes: [
+      { l: "A", t: "rn1crosoftonline.com — typosquatting de marca, registro recente, WHOIS privado e infraestrutura já associada a phishing." },
+      { l: "B", t: "update-srv.ddns.net — DDNS com intervalo fixo de 300 segundos, o que sugere comunicação automatizada posterior ao acesso inicial." },
+      { l: "C", t: "185.220.101.47 — IP visto em consultas suspeitas, mas que isoladamente ainda admite múltiplos contextos operacionais." },
+      { l: "D", t: "d41d8cd98f00b204e9800998ecf8427e — hash de arquivo vazio em caminho incomum, dependente do restante da telemetria para ganhar peso." }
+    ],
+    correta: "A",
+    exp: "Ao restringir a análise a <strong>impersonação de marca e coleta inicial de credenciais</strong>, o IOC de maior confiança é <strong>rn1crosoftonline.com</strong>. Ele combina typosquatting claro, registro recente, WHOIS privado e infraestrutura relacionada a campanhas de phishing, o que basta para justificar investigação imediata. O DDNS com beaconing é fortíssimo para <em>fase pós-comprometimento</em>, mas não é o melhor indicador isolado de phishing inicial. O IP e o hash precisam de contexto adicional para ganhar a mesma confiança."
+  },
+  {
+    id: 5,
+    num: "QUESTÃO 05",
+    texto: "Qual conjunto de evidências indica de forma mais conclusiva que o adversário estabeleceu canal de comunicação persistente com o host comprometido após o comprometimento inicial?",
+    opcoes: [
+      { l: "A", t: "OneDriveSetup.exe com hash mismatch criado pelo explorer.exe, combinado com svchost_backup.exe de 0 bytes em C:\\Users\\Public\\." },
+      { l: "B", t: "Consultas repetidas a api.ipify.org (4x/hora) a partir de WS-BSILVA-01, indicando reconhecimento contínuo de IP externo para mapeamento de rede." },
+      { l: "C", t: "Beaconing HTTP POST para update-srv.ddns.net/gate.php em intervalo fixo de 300s, User-Agent python-requests/2.31.0 e conexão TLS sem SNI para 45.142.212.100." },
+      { l: "D", t: "PuTTY em C:\\Tools\\ combinado com queries DNS ao domínio legítimo login.microsoftonline.com, indicando possível tunelamento SSH disfarçado de tráfego normal." }
+    ],
+    correta: "C",
+    exp: "A resposta C consolida três artefatos que juntos definem canal C2 ativo: (1) <strong>beaconing em intervalo fixo sem jitter</strong> — característica clássica de implante; (2) <strong>python-requests/2.31.0</strong> — script automatizado, não browser; (3) <strong>TLS sem SNI para IP direto</strong> — evasão de inspeção TLS. A alternativa A descreve staging e evasão, não canal persistente. B é reconhecimento, não C2. D é o distrator mais sofisticado: PuTTY tem hash legítimo e login.microsoftonline.com é domínio real. <strong>Se você caiu em D, era exatamente o objetivo do exercício.</strong>"
+  },
+  {
+    id: 6,
+    num: "QUESTÃO 06",
+    texto: "Com base na análise completa dos indicadores, logs, OSINT e correlações, qual conclusão analítica é mais adequada para o relatório de inteligência sobre este caso?",
+    opcoes: [
+      { l: "A", t: "Atividade anômala inconclusiva: a presença de IOCs legítimos no conjunto impede conclusão operacional confiável neste momento." },
+      { l: "B", t: "Falso positivo provável: o acesso ao typosquatting pode ter sido acidental e o restante do tráfego admite interpretação benigna." },
+      { l: "C", t: "Comprometimento de infraestrutura ampla: há base suficiente para afirmar impacto em múltiplos sistemas, inclusive no controlador de domínio." },
+      { l: "D", t: "Comprometimento confirmado de WS-BSILVA-01 via phishing, seguido de implante com canal C2 ativo; resposta imediata deve incluir isolamento, forense e reset de credenciais." }
+    ],
+    correta: "D",
+    exp: "A conclusão correta é <strong>D</strong> porque é a única proporcional ao que os dados realmente sustentam: phishing, submissão de credencial, criação de processo com hash divergente, beaconing regular e comunicação C2. A opção A ignora uma cadeia completa de comprometimento. B minimiza evidências fortes demais para serem tratadas como acidente. C extrapola sem base — o controlador de domínio não apresenta eventos anômalos. <strong>Boa análise não subestima nem superdimensiona o incidente.</strong>"
+  }
+];
+
+var analista = { nome: "", pronome: "", data: "" };
+var respostas = {};
+
+function mostrar(id) {
+  var telas = document.querySelectorAll(".screen");
+  for (var i = 0; i < telas.length; i++) { telas[i].classList.remove("active"); }
+  document.getElementById(id).classList.add("active");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function iniciar() {
+  var nome = document.getElementById("inp-nome").value.trim();
+  var pronome = document.getElementById("inp-pronome").value.trim();
+  var data = document.getElementById("inp-data").value;
+  if (!nome || !pronome || !data) {
+    alert("Preencha todos os campos. O adversário não espera, mas o formulário sim.");
+    return;
+  }
+  analista.nome = nome;
+  analista.pronome = pronome;
+  analista.data = data;
+  mostrar("s1");
+}
+
+function irPerguntas() {
+  renderPerguntas();
+  var btn = document.getElementById("btn-ioc-action");
+  if (btn) { btn.textContent = "→ Voltar às perguntas"; btn.onclick = function(){ mostrar("s2"); }; }
+  mostrar("s2");
+}
+
+function renderPerguntas() {
+  var c = document.getElementById("q-container");
+  c.innerHTML = "";
+  for (var i = 0; i < questoes.length; i++) {
+    var q = questoes[i];
+    var block = document.createElement("div");
+    block.className = "q-block";
+    var html = '<div class="q-num">' + q.num + '</div><div class="q-text">' + q.texto + '</div><div class="opts" id="opts-' + q.id + '">';
+    for (var j = 0; j < q.opcoes.length; j++) {
+      var o = q.opcoes[j];
+      html += '<div class="opt" data-qid="' + q.id + '" data-letra="' + o.l + '" onclick="selecionar(this)"><span class="opt-ltr">' + o.l + '</span><span class="opt-txt">' + o.t + '</span></div>';
+    }
+    html += '</div>';
+    block.innerHTML = html;
+    c.appendChild(block);
+  }
+}
+
+function selecionar(el) {
+  var qid = el.getAttribute("data-qid");
+  var letra = el.getAttribute("data-letra");
+  var grupo = document.querySelectorAll("#opts-" + qid + " .opt");
+  for (var i = 0; i < grupo.length; i++) { grupo[i].classList.remove("picked"); }
+  el.classList.add("picked");
+  respostas[qid] = letra;
+}
+
+function enviar() {
+  var total = 0;
+  for (var k in respostas) { if (Object.prototype.hasOwnProperty.call(respostas, k)) total++; }
+  if (total < questoes.length) {
+    alert("Você tem " + (questoes.length - total) + " questão(ões) sem resposta. Um analista não entrega relatório incompleto.");
+    return;
+  }
+  renderResultado();
+  mostrar("s3");
+}
+
+function renderResultado() {
+  var score = 0;
+  for (var i = 0; i < questoes.length; i++) {
+    if (respostas[String(questoes[i].id)] === questoes[i].correta) score++;
+  }
+
+  var sb = document.getElementById("score-box");
+  document.getElementById("score-n").textContent = score;
+  if (score === 6) { sb.style.borderColor = "var(--ok)"; }
+  else if (score >= 4) { sb.style.borderColor = "var(--signal)"; }
+  else if (score >= 3) { sb.style.borderColor = "var(--warn)"; }
+  else { sb.style.borderColor = "var(--risk)"; }
+
+  var classes = [
+    { min: 0, max: 2, nome: "Observador Passivo", desc: "Você viu os dados. Os dados não te viram de volta. Próxima vez correlaciona antes de responder.", ico: "👁" },
+    { min: 3, max: 4, nome: "Analista em Evolução", desc: "Você capturou parte da cadeia — mas o adversário saiu por uma porta que você não estava olhando.", ico: "📡" },
+    { min: 5, max: 5, nome: "Analista Consistente", desc: "Sólido. Você entendeu o jogo — mas um IOC escapou. Na vida real, esse pode ser o movimento lateral.", ico: "🔍" },
+    { min: 6, max: 6, nome: "Analista de Inteligência", desc: "Correlação perfeita. Você não foi enganado pelo ruído, resistiu aos falsos positivos e montou a cadeia correta.", ico: "🛡" }
+  ];
+  var cls = classes[0];
+  for (var c = 0; c < classes.length; c++) {
+    if (score >= classes[c].min && score <= classes[c].max) { cls = classes[c]; break; }
+  }
+  document.getElementById("cls-nome").textContent = cls.ico + " " + cls.nome;
+  document.getElementById("cls-desc").textContent = cls.desc;
+
+  var rl = document.getElementById("review-list");
+  rl.innerHTML = '<h2 style="margin-bottom:16px;">Questões comentadas</h2>';
+  for (var qi = 0; qi < questoes.length; qi++) {
+    var q = questoes[qi];
+    var escolha = respostas[String(q.id)];
+    var acertou = (escolha === q.correta);
+    var optEscolha = null;
+    var optCorreta = null;
+    for (var oi = 0; oi < q.opcoes.length; oi++) {
+      if (q.opcoes[oi].l === escolha) { optEscolha = q.opcoes[oi]; }
+      if (q.opcoes[oi].l === q.correta) { optCorreta = q.opcoes[oi]; }
+    }
+    var card = document.createElement("div");
+    card.className = "review-card " + (acertou ? "hit" : "miss");
+    var wrongLine = "";
+    if (!acertou && optCorreta) {
+      wrongLine = '<div class="ra ra-ok">✓ Correta: ' + q.correta + ' — ' + optCorreta.t.substring(0, 70) + '...</div>';
+    }
+    var chosenText = optEscolha ? optEscolha.t.substring(0, 70) + "..." : "—";
+    card.innerHTML =
+      '<div class="rq">' + q.num + ' — ' + q.texto.substring(0, 90) + '...</div>' +
+      '<div class="ra ' + (acertou ? "ra-ok" : "ra-miss") + '">' + (acertou ? "✓" : "✗") + ' Sua resposta: ' + escolha + ' — ' + chosenText + '</div>' +
+      wrongLine +
+      '<div class="rexp">' + q.exp + '</div>';
+    rl.appendChild(card);
+  }
+
+  var cz = document.getElementById("cert-zone");
+  if (score === 6) {
+    cz.innerHTML =
+      '<div class="panel panel-ok" style="text-align:center;padding:36px;">' +
+      '<div style="font-size:36px;margin-bottom:12px;">🛡</div>' +
+      '<h2 style="color:var(--ok);margin-bottom:8px;">Aproveitamento máximo</h2>' +
+      '<p style="color:var(--fog);font-size:13px;margin-bottom:24px;">Você correlacionou todos os indicadores corretamente. Certificado disponível.</p>' +
+      '<button class="btn btn-primary" onclick="gerarCertificado()">Gerar certificado →</button>' +
+      '</div>';
+  } else {
+    cz.innerHTML =
+      '<div class="blocked">' +
+      '<div style="font-size:36px;margin-bottom:14px;">🔒</div>' +
+      '<h2 style="color:var(--risk);margin-bottom:8px;">Certificado bloqueado</h2>' +
+      '<p style="color:var(--fog);font-size:13px;">O certificado exige 6/6 acertos. Você obteve ' + score + '/6.<br>' +
+      '<span style="font-size:11px;font-family:var(--mono);">// A inteligência não é sobre tentar. É sobre acertar.</span></p>' +
+      '</div>';
+  }
+}
+
+function gerarCertificado() {
+  document.getElementById("c-nome").textContent = analista.nome;
+  var d = new Date(analista.data + "T12:00:00");
+  var meses = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+  document.getElementById("c-data").textContent = d.getDate() + " de " + meses[d.getMonth()] + " de " + d.getFullYear();
+  document.getElementById("c-id").textContent = "TL-" + gerarHash(analista.nome + analista.data);
+  document.getElementById("c-corpo").textContent =
+    "Certificamos que " + analista.nome + " (" + analista.pronome + ") concluiu com aproveitamento máximo o Desafio de Threat Intelligence – Análise de IOCs, " +
+    "demonstrando capacidade de correlacionar indicadores, interpretar sinais de ameaça e construir análises coerentes em contexto operacional.";
+  mostrar("s4");
+}
+
+function gerarHash(str) {
+  var hash = 0;
+  for (var i = 0; i < str.length; i++) {
+    var ch = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + ch;
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString(16).toUpperCase().padStart(8, "0");
+}
+
+function baixarCert() {
+  var el = document.getElementById("cert-render");
+  html2canvas(el, { scale: 3, backgroundColor: "#faf7f0", useCORS: true, allowTaint: true, logging: false }).then(function(canvas) {
+    var a = document.createElement("a");
+    a.download = "certificado-cti.png";
+    a.href = canvas.toDataURL("image/png");
+    a.click();
+  });
+}
+
+function refazer() {
+  respostas = {};
+  document.getElementById("q-container").innerHTML = "";
+  var btn = document.getElementById("btn-ioc-action");
+  if (btn) { btn.textContent = "Ir para análise →"; btn.onclick = irPerguntas; }
+  mostrar("s0");
+}
+
+document.getElementById("inp-data").valueAsDate = new Date();
+</script>
+</body>
+</html>
