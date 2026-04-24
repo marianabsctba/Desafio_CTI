@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ThreatLens — Desafio de Threat Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+:root {
+  --ink: #0e1117;
+  --ink2: #161b27;
+  --ink3: #1c2235;
+  --line: #242d42;
+  --line2: #2d3850;
+  --fog: #7a86a8;
+  --mist: #b0bcd8;
+  --paper: #d8e0f0;
+  --bright: #edf2ff;
+  --white: #ffffff;
+  --signal: #5b8dee;
+  --signal-glow: rgba(91,141,238,0.15);
+  --signal-edge: rgba(91,141,238,0.35);
+  --warn: #e8a93a;
+  --warn-glow: rgba(232,169,58,0.12);
+  --warn-edge: rgba(232,169,58,0.3);
+  --risk: #e05252;
+  --risk-glow: rgba(224,82,82,0.1);
+  --risk-edge: rgba(224,82,82,0.3);
+  --ok: #3db87a;
+  --ok-edge: rgba(61,184,122,0.3);
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Space Grotesk', sans-serif;
+  --serif: 'Crimson Pro', serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{background:var(--ink);color:var(--paper);font-family:var(--sans);font-size:14px;line-height:1.65;min-height:100vh;}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 80% 60% at 20% 10%,rgba(91,141,238,0.04) 0%,transparent 60%),radial-gradient(ellipse 60% 40% at 80% 80%,rgba(232,169,58,0.03) 0%,transparent 50%);pointer-events:none;z-index:0;}
+.wrap{position:relative;z-index:1;max-width:1080px;margin:0 auto;padding:0 28px 100px;}
+
+/* TOP BAR */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:18px 0 16px;border-bottom:1px solid var(--line);margin-bottom:52px;}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--sans);font-size:14px;font-weight:700;color:var(--bright);letter-spacing:-0.01em;}
+.brand-diamond{width:8px;height:8px;background:var(--signal);border-radius:2px;transform:rotate(45deg);}
+.brand sub{font-size:10px;font-weight:300;color:var(--fog);font-family:var(--mono);letter-spacing:0.1em;}
+.topbar-right{display:flex;align-items:center;gap:16px;font-family:var(--mono);font-size:10px;color:var(--fog);letter-spacing:0.08em;}
+.live-dot{display:inline-block;width:5px;height:5px;background:var(--warn);border-radius:50%;animation:blink 1.8s infinite;margin-right:4px;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+
+/* SCREENS */
+.screen{display:none;}
+.screen.active{display:block;animation:rise 0.35s ease;}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+/* TYPE */
+h1{font-family:var(--sans);font-size:clamp(32px,5vw,52px);font-weight:700;color:var(--white);line-height:1.05;letter-spacing:-0.03em;}
+h2{font-family:var(--sans);font-size:22px;font-weight:600;color:var(--bright);letter-spacing:-0.02em;}
+.eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--mist);margin-bottom:14px;}
+
+/* TAGS */
+.tag{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:3px;font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;}
+.tag-r{background:var(--risk-glow);color:var(--risk);border:1px solid var(--risk-edge);}
+.tag-w{background:var(--warn-glow);color:var(--warn);border:1px solid var(--warn-edge);}
+.tag-s{background:var(--signal-glow);color:var(--signal);border:1px solid var(--signal-edge);}
+.tag-n{background:rgba(74,85,120,0.15);color:var(--fog);border:1px solid var(--line2);}
+.tag-ok{background:rgba(61,184,122,0.08);color:var(--ok);border:1px solid var(--ok-edge);}
+
+/* PANEL */
+.panel{background:var(--ink2);border:1px solid var(--line);border-radius:10px;padding:28px;}
+.panel-warn{border-color:var(--warn-edge);}
+.panel-risk{border-color:var(--risk-edge);}
+.panel-ok{border-color:var(--ok-edge);}
+
+/* FORM */
+.field{margin-bottom:22px;}
+.field label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--mist);margin-bottom:8px;}
+.field input{width:100%;background:var(--ink3);border:1px solid var(--line2);border-radius:6px;padding:11px 14px;color:var(--bright);font-family:var(--sans);font-size:14px;outline:none;transition:border-color 0.2s,box-shadow 0.2s;}
+.field input:focus{border-color:var(--signal);box-shadow:0 0 0 3px var(--signal-glow);}
+.field input::placeholder{color:var(--fog);}
+
+/* BTN */
+.btn{display:inline-flex;align-items:center;gap:8px;padding:11px 24px;border:none;border-radius:6px;font-family:var(--sans);font-size:14px;font-weight:600;cursor:pointer;transition:all 0.18s;}
+.btn-primary{background:var(--signal);color:#fff;}
+.btn-primary:hover{background:#6e9ef0;transform:translateY(-1px);box-shadow:0 4px 20px rgba(91,141,238,0.3);}
+.btn-ghost{background:transparent;color:var(--signal);border:1px solid var(--signal-edge);}
+.btn-ghost:hover{background:var(--signal-glow);}
+.btn-warn{background:var(--warn);color:var(--ink);font-weight:700;}
+.btn-warn:hover{background:#f0b848;transform:translateY(-1px);}
+
+.hr{border:none;border-top:1px solid var(--line);margin:36px 0;}
+
+/* SECTION HEAD */
+.sec-head{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
+.sec-num{font-family:var(--mono);font-size:9px;color:var(--fog);letter-spacing:0.1em;border:1px solid var(--line2);padding:2px 7px;border-radius:3px;}
+.sec-label{font-family:var(--mono);font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--mist);}
+
+/* IOC TABLE */
+.ioc-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;}
+.ioc-table thead tr{border-bottom:1px solid var(--line2);}
+.ioc-table th{padding:8px 12px;text-align:left;font-size:9px;font-weight:600;letter-spacing:0.15em;text-transform:uppercase;color:var(--fog);}
+.ioc-table td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;}
+.ioc-table tr:last-child td{border-bottom:none;}
+.ioc-table tr:hover td{background:rgba(255,255,255,0.015);}
+.iv{color:var(--bright);word-break:break-all;}
+.ic{color:var(--fog);font-size:10px;margin-top:3px;}
+
+/* LOG */
+.log{background:#080b10;border:1px solid var(--line);border-radius:8px;padding:18px 20px;font-family:var(--mono);font-size:11px;line-height:2;overflow-x:auto;}
+.lt{color:var(--line2);}
+.lh{color:var(--signal);}
+.lw{color:var(--warn);}
+.lr{color:var(--risk);}
+.lg{color:var(--ok);}
+.ld{color:#2a3050;}
+
+/* OSINT */
+.osint-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.orow{display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line);font-size:12px;gap:12px;}
+.orow:last-child{border-bottom:none;}
+.ok2{color:var(--mist);font-family:var(--mono);font-size:10px;flex-shrink:0;}
+.ov{color:var(--paper);text-align:right;}
+
+/* QUESTION */
+.q-block{background:var(--ink2);border:1px solid var(--line);border-radius:10px;padding:26px;margin-bottom:14px;}
+.q-num{font-family:var(--mono);font-size:10px;color:var(--fog);margin-bottom:10px;letter-spacing:0.1em;}
+.q-text{font-size:15px;font-weight:500;color:var(--bright);margin-bottom:18px;line-height:1.5;}
+.opts{display:flex;flex-direction:column;gap:8px;}
+.opt{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;background:var(--ink3);border:1px solid var(--line);border-radius:6px;cursor:pointer;transition:all 0.15s;user-select:none;}
+.opt:hover{border-color:var(--line2);background:rgba(91,141,238,0.05);}
+.opt.picked{border-color:var(--signal);background:var(--signal-glow);}
+.opt-ltr{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--white);min-width:22px;margin-top:2px;flex-shrink:0;letter-spacing:0.05em;}
+.opt.picked .opt-ltr{color:var(--signal);}
+.opt-txt{font-size:14px;font-weight:500;color:var(--bright);line-height:1.6;}
+.opt.picked .opt-txt{color:var(--white);}
+
+/* RESULTS */
+.result-row{display:flex;align-items:center;gap:28px;margin-bottom:32px;}
+.score-box{width:96px;height:96px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--ink3);border:2px solid var(--line2);flex-shrink:0;}
+.score-n{font-family:var(--sans);font-size:40px;font-weight:700;color:var(--white);line-height:1;}
+.score-d{font-family:var(--mono);font-size:10px;color:var(--fog);margin-top:2px;}
+
+.review-card{background:var(--ink2);border:1px solid var(--line);border-radius:8px;padding:20px;margin-bottom:12px;}
+.review-card.hit{border-left:3px solid var(--ok);}
+.review-card.miss{border-left:3px solid var(--risk);}
+.rq{font-size:12px;color:var(--fog);margin-bottom:8px;}
+.ra{font-family:var(--mono);font-size:11px;margin-bottom:3px;}
+.ra-ok{color:var(--ok);}
+.ra-miss{color:var(--risk);}
+.rexp{margin-top:12px;padding:12px 14px;background:var(--ink3);border-radius:6px;font-size:12px;color:var(--mist);line-height:1.7;}
+.rexp strong{color:var(--warn);}
+
+/* CERT */
+#cert-render{background:#faf7f0;border-radius:12px;padding:64px;max-width:860px;margin:0 auto;position:relative;overflow:hidden;color:#18181b;}
+.cert-frame{position:absolute;inset:14px;border:1.5px solid #bfa96a;border-radius:6px;pointer-events:none;}
+.cert-frame2{position:absolute;inset:20px;border:1px solid rgba(191,169,106,0.3);border-radius:3px;pointer-events:none;}
+.cert-bg{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-12deg);font-family:var(--sans);font-size:100px;font-weight:700;color:rgba(191,169,106,0.05);white-space:nowrap;pointer-events:none;letter-spacing:-0.05em;}
+.cert-top{text-align:center;position:relative;margin-bottom:28px;}
+.cert-label{font-family:var(--mono);font-size:10px;letter-spacing:0.28em;text-transform:uppercase;color:#9a7f40;margin-bottom:14px;}
+.cert-h1{font-family:var(--sans);font-size:38px;font-weight:700;color:#18181b;letter-spacing:-0.03em;}
+.cert-h2{font-family:var(--serif);font-size:15px;color:#6a6070;margin-top:4px;font-style:italic;}
+.cert-sep{border:none;border-top:1px solid rgba(191,169,106,0.5);margin:24px 0;}
+.cert-mid{text-align:center;position:relative;}
+.cert-certifica{font-family:var(--mono);font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:#9a7f40;margin-bottom:6px;}
+.cert-nome{font-family:var(--sans);font-size:40px;font-weight:700;color:#18181b;letter-spacing:-0.03em;margin-bottom:18px;line-height:1.05;}
+.cert-badge{display:inline-block;border:1px solid #bfa96a;border-radius:4px;padding:6px 18px;font-family:var(--mono);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#9a7f40;margin-bottom:20px;}
+.cert-corpo{font-family:var(--serif);font-size:15px;color:#3a3540;line-height:1.9;max-width:540px;margin:0 auto 28px;}
+.cert-rodape{display:flex;align-items:flex-end;justify-content:space-between;margin-top:20px;}
+.cert-dados{display:flex;gap:36px;}
+.cert-dado-label{font-family:var(--mono);font-size:9px;color:#9a7f40;letter-spacing:0.12em;text-transform:uppercase;}
+.cert-dado-val{font-family:var(--mono);font-size:11px;color:#3a3540;margin-top:3px;}
+.cert-selo{width:88px;height:88px;border-radius:50%;border:2.5px solid #bfa96a;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:rgba(191,169,106,0.05);}
+.cert-selo-ico{font-size:22px;margin-bottom:2px;}
+.cert-selo-txt{font-family:var(--mono);font-size:7px;color:#9a7f40;letter-spacing:0.06em;line-height:1.6;}
+.cert-assin{text-align:center;}
+.cert-assin-linha{width:180px;height:1px;background:rgba(191,169,106,0.6);margin-bottom:8px;}
+.cert-assin-nome{font-family:var(--sans);font-size:14px;font-weight:700;color:#18181b;}
+.cert-assin-cargo{font-family:var(--serif);font-size:12px;color:#9a7f40;font-style:italic;margin-top:2px;}
+
+/* BLOCKED */
+.blocked{text-align:center;padding:44px;background:var(--ink2);border:1px solid var(--risk-edge);border-radius:10px;margin-top:24px;}
+
+/* UTILS */
+.mb-12{margin-bottom:12px;}.mb-16{margin-bottom:16px;}.mb-24{margin-bottom:24px;}.mb-32{margin-bottom:32px;}.mb-48{margin-bottom:48px;}
+.mt-8{margin-top:8px;}.mt-16{margin-top:16px;}.mt-24{margin-top:24px;}.mt-28{margin-top:28px;}.mt-32{margin-top:32px;}
+.flex{display:flex;}.items-c{align-items:center;}.jc-sb{justify-content:space-between;}.gap-8{gap:8px;}
+
+@media(max-width:768px){
+  .wrap{padding:0 16px 80px;}
+  .topbar{margin-bottom:32px;}
+  .topbar-right span:last-child{display:none;}
+  h1{font-size:28px;}
+  h2{font-size:18px;}
+  .panel{padding:18px;}
+  .flex.items-c.jc-sb{flex-direction:column;align-items:flex-start;gap:12px;}
+  .flex.items-c.jc-sb .btn{align-self:flex-start;}
+  .ioc-table thead{display:none;}
+  .ioc-table tbody{display:block;}
+  .ioc-table tr{display:flex;flex-direction:column;padding:12px;border-bottom:1px solid var(--line);gap:6px;}
+  .ioc-table tr:last-child{border-bottom:none;}
+  .ioc-table td{display:block;padding:0;border:none;font-size:12px;}
+  .ioc-table td:last-child{margin-top:4px;}
+  .iv{font-size:11px;}
+  .log{font-size:10px;line-height:1.9;padding:12px;}
+  .osint-grid{grid-template-columns:1fr;}
+  .q-block{padding:18px;}
+  .q-text{font-size:14px;}
+  .opt{padding:10px 12px;}
+  .opt-txt{font-size:13px;}
+  .result-row{flex-direction:column;align-items:flex-start;gap:16px;}
+  .review-card{padding:14px;}
+  .rexp{font-size:12px;}
+  #cert-render{padding:28px 20px;}
+  .cert-h1{font-size:22px;}
+  .cert-h2{font-size:13px;}
+  .cert-nome{font-size:24px;}
+  .cert-corpo{font-size:13px;}
+  .cert-rodape{flex-direction:column;gap:20px;align-items:center;text-align:center;}
+  .cert-dados{flex-direction:column;gap:12px;align-items:center;}
+  .cert-assin-linha{margin:0 auto 8px;}
+  .btn{padding:10px 18px;font-size:13px;}
+  .score-box{width:80px;height:80px;}
+  .score-n{font-size:32px;}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-diamond"></div>
+      ThreatLens <sub>// CTI Platform</sub>
+    </div>
+    <div class="topbar-right">
+      <span><span class="live-dot"></span>AO VIVO</span>
+      <span>REF: INC-2024-0831</span>
+    </div>
+  </header>
+
+  <!-- ══════ TELA 0: INTRO -->
+  <div class="screen active" id="s0">
+    <div class="mb-32">
+      <div class="eyebrow">// exercício operacional · tlp:amber</div>
+      <h1>Desafio de<br>Threat Intelligence</h1>
+      <p style="margin-top:18px;max-width:520px;font-size:15px;color:var(--bright);line-height:1.75;">
+        Análise de Indicadores de Comprometimento.<br>
+        <span style="color:var(--mist);font-size:13px;">Alta dificuldade. Sem atalhos. Exige correlação.</span>
+      </p>
+    </div>
+
+    <div class="panel panel-warn mb-32" style="max-width:640px;">
+      <div class="eyebrow">// briefing operacional</div>
+      <p style="font-size:14px;color:var(--bright);line-height:1.8;">
+        Você recebeu um conjunto de indicadores coletados de múltiplas fontes entre 2024-08-28 e 2024-08-31.
+        <strong style="color:var(--bright);">Não há confirmação de incidente.</strong>
+        Seu papel é analisar, correlacionar e determinar se há atividade maliciosa — e qual.<br><br>
+        Os dados incluem ruído deliberado, falsos positivos e IOCs que parecem exatamente o que não são.
+        Se a resposta parece óbvia, é o distrator fazendo o trabalho dele.<br>
+        <span style="color:var(--mist);font-size:12px;font-family:var(--mono);">// Bem-vindo ao CTI real.</span>
+      </p>
+    </div>
+
+    <div class="panel mb-32" style="max-width:480px;">
+      <div class="eyebrow">// identificação do analista</div>
+      <div class="field">
+        <label>Nome completo</label>
+        <input type="text" id="inp-nome" placeholder="Ex: Ana Oliveira" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Pronome</label>
+        <input type="text" id="inp-pronome" placeholder="ela/dela · ele/dele · elu/delu">
+      </div>
+      <div class="field">
+        <label>Data da análise</label>
+        <input type="date" id="inp-data">
+      </div>
+    </div>
+
+    <button class="btn btn-primary" onclick="iniciar()">Iniciar análise →</button>
+  </div>
+
+  <!-- ══════ TELA 1: IOCs -->
+  <div class="screen" id="s1">
+    <div class="flex items-c jc-sb mb-32">
+      <div>
+        <div class="eyebrow">// conjunto de indicadores · inc-2024-0831</div>
+        <h2>Dados de Threat Intelligence</h2>
+      </div>
+      <button class="btn btn-ghost" id="btn-ioc-action" onclick="irPerguntas()">Ir para análise →</button>
+    </div>
+
+    <div class="panel panel-warn mb-24">
+      <p style="font-size:13px;color:var(--warn);line-height:1.7;">
+        <strong>Nota do analista sênior:</strong> IOCs coletados de EDR, proxy corporativo e feed externo.
+        Nem todos são relevantes. Alguns estão aqui para te fazer perder tempo.
+        Outros parecem inofensivos e não são. Boa leitura.
+      </p>
+    </div>
+
+    <!-- IPs -->
+    <div class="mt-28 mb-16">
+      <div class="sec-head"><span class="sec-num">01</span><span class="sec-label">Endereços IP</span></div>
+      <div class="panel" style="padding:0;overflow:hidden;">
+        <table class="ioc-table">
+          <thead><tr><th>Endereço</th><th>Contexto</th><th>Classificação</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><div class="iv">185.220.101.47</div><div class="ic">Saída porta 443 · 23:47h</div></td>
+              <td style="color:var(--mist);font-size:12px;">Destino de query DNS suspeita · fora do horário comercial</td>
+              <td><span class="tag tag-w">⚑ Suspeito</span></td>
+            </tr>
+            <tr>
+              <td><div class="iv">104.21.234.18</div><div class="ic">DNS · 3x/dia · regular</div></td>
+              <td style="color:var(--mist);font-size:12px;">CDN conhecida. Respira.</td>
+              <td><span class="tag tag-n">CDN</span></td>
+            </tr>
+            <tr>
+              <td><div class="iv">45.142.212.100</div><div class="ic">ASN europeu · sem histórico</div></td>
+              <td style="color:var(--mist);font-size:12px;">TLS sem SNI · porta 443</td>
+              <td><span class="tag tag-r">⚠ Alto risco</span></td>
+            </tr>
+            <tr>
+              <td><div class="iv">8.8.8.8</div><div class="ic">Consultas DNS · freq. normal</div></td>
+              <td style="color:var(--mist);font-size:12px;">DNS público do Google. Se você marcou isso como IoC, vá descansar.</td>
+              <td><span class="tag tag-ok">Legítimo</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- DOMÍNIOS -->
+    <div class="mt-28 mb-16">
+      <div class="sec-head"><span class="sec-num">02</span><span class="sec-label">Domínios</span></div>
+      <div class="panel" style="padding:0;overflow:hidden;">
+        <table class="ioc-table">
+          <thead><tr><th>Domínio</th><th>Contexto</th><th>Classificação</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><div class="iv">rn1crosoftonline.com</div><div class="ic">Registrado há 9 dias · WHOIS privado</div></td>
+              <td style="color:var(--mist);font-size:12px;">Typosquatting de microsoftonline · infra compartilhada</td>
+              <td><span class="tag tag-r">⚠ Typosquat</span></td>
+            </tr>
+            <tr>
+              <td><div class="iv">login.microsoftonline.com</div><div class="ic">Auth SSO corporativa</div></td>
+              <td style="color:var(--mist);font-size:12px;">Domínio legítimo da Microsoft. Não é o mesmo de cima. Olhe com calma.</td>
+              <td><span class="tag tag-ok">Legítimo</span></td>
+            </tr>
+            <tr>
+              <td><div class="iv">cdn-telemetry.azureedge.net</div><div class="ic">Volume alto · múltiplos hosts</div></td>
+              <td style="color:var(--mist);font-size:12px;">Infra Azure legítima. Parece ruim. Não é. Distrator clássico.</td>
+              <td><span class="tag tag-s">Ambíguo</span></td>
+            </tr>
+            <tr>
+              <td><div class="iv">update-srv.ddns.net</div><div class="ic">DDNS · beacon 300s · jitter 0</div></td>
+              <td style="color:var(--mist);font-size:12px;">Intervalo fixo sem variação · padrão de implante</td>
+              <td><span class="tag tag-w">⚑ Atenção</span></td>
+            </tr>
+            <tr>
+              <td><div class="iv">api.ipify.org</div><div class="ic">IP lookup externo · 4x/hora</div></td>
+              <td style="color:var(--mist);font-size:12px;">Serviço legítimo — mas workstation verificando próprio IP externo 4x/h é uma pergunta válida</td>
+              <td><span class="tag tag-w">Suspeito-ctx</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- HASHES -->
+    <div class="mt-28 mb-16">
+      <div class="sec-head"><span class="sec-num">03</span><span class="sec-label">Hashes de Arquivos</span></div>
+      <div class="panel" style="padding:0;overflow:hidden;">
+        <table class="ioc-table">
+          <thead><tr><th>Hash</th><th>Arquivo / Caminho</th><th>Classificação</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><div class="iv" style="font-size:10px;">d41d8cd98f00b204e9800998ecf8427e</div><div class="ic">MD5</div></td>
+              <td style="color:var(--mist);font-size:12px;">svchost_backup.exe · C:\Users\Public\ · 0 bytes</td>
+              <td><span class="tag tag-r">⚠ Evasão</span></td>
+            </tr>
+            <tr>
+              <td><div class="iv" style="font-size:10px;">3395856CE81F2B7382DEE72602F798B642F14140</div><div class="ic">SHA1</div></td>
+              <td style="color:var(--mist);font-size:12px;">putty.exe · C:\Tools\ · hash original confirmado</td>
+              <td><span class="tag tag-ok">Legítimo*</span></td>
+            </tr>
+            <tr>
+              <td><div class="iv" style="font-size:10px;word-break:break-all;">b14d8c5f2e9a3c761f0d4e2b8a5f1c9d3e7a2b4f6c8d0e1a3b5c7d9e1f2a4b6</div><div class="ic">SHA256</div></td>
+              <td style="color:var(--mist);font-size:12px;">OneDriveSetup.exe · %TEMP%\ · não bate com instalador oficial</td>
+              <td><span class="tag tag-r">⚠ Hash mismatch</span></td>
+            </tr>
+            <tr>
+              <td><div class="iv" style="font-size:10px;word-break:break-all;">e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855</div><div class="ic">SHA256</div></td>
+              <td style="color:var(--mist);font-size:12px;">readme.txt · Desktop\ · arquivo de texto vazio. Nada aqui.</td>
+              <td><span class="tag tag-n">Ruído</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- URLs -->
+    <div class="mt-28 mb-16">
+      <div class="sec-head"><span class="sec-num">04</span><span class="sec-label">URLs — Proxy Log</span></div>
+      <div class="panel" style="padding:0;overflow:hidden;">
+        <table class="ioc-table">
+          <thead><tr><th>URL</th><th>Contexto</th><th>Classificação</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><div class="iv" style="font-size:10px;">hxxps://rn1crosoftonline[.]com/oauth2/authorize?client_id=00000002</div><div class="ic">bsilva@empresa.com.br · 23:51:04</div></td>
+              <td style="color:var(--mist);font-size:12px;">Credential harvest · redirect 302</td>
+              <td><span class="tag tag-r">⚠ Phishing</span></td>
+            </tr>
+            <tr>
+              <td><div class="iv" style="font-size:10px;">hxxp://update-srv.ddns[.]net/gate.php?uid=WS-BSILVA-01&amp;v=2</div><div class="ic">Início: 23:52:12 · intervalo 300s</div></td>
+              <td style="color:var(--mist);font-size:12px;">Beaconing com UID de host · padrão C2</td>
+              <td><span class="tag tag-r">⚠ C2</span></td>
+            </tr>
+            <tr>
+              <td><div class="iv" style="font-size:10px;">https://cdn-telemetry.azureedge.net/v2/collect</div><div class="ic">Múltiplos hosts · padrão regular</div></td>
+              <td style="color:var(--mist);font-size:12px;">Volume normal em toda a rede corporativa</td>
+              <td><span class="tag tag-ok">Legítimo</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- USER-AGENTS -->
+    <div class="mt-28 mb-16">
+      <div class="sec-head"><span class="sec-num">05</span><span class="sec-label">User-Agents HTTP</span></div>
+      <div class="panel" style="padding:0;overflow:hidden;">
+        <table class="ioc-table">
+          <thead><tr><th>User-Agent</th><th>Contexto</th><th>Classificação</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><div class="iv" style="font-size:10px;">Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/117</div></td>
+              <td style="color:var(--mist);font-size:12px;">Browser padrão · múltiplos hosts</td>
+              <td><span class="tag tag-n">Comum</span></td>
+            </tr>
+            <tr>
+              <td><div class="iv" style="font-size:10px;">python-requests/2.31.0</div><div class="ic">Origem: WS-BSILVA-01 · dst: update-srv.ddns.net</div></td>
+              <td style="color:var(--mist);font-size:12px;">Script Python fazendo POST para DDNS suspeito. Não é seu dev local.</td>
+              <td><span class="tag tag-r">⚠ Implante</span></td>
+            </tr>
+            <tr>
+              <td><div class="iv" style="font-size:10px;">Microsoft-CryptoAPI/10.0</div></td>
+              <td style="color:var(--mist);font-size:12px;">Verificação de CRL · múltiplos hosts · esperado</td>
+              <td><span class="tag tag-n">Ruído</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- LOGS -->
+    <div class="mt-28 mb-16">
+      <div class="sec-head"><span class="sec-num">06</span><span class="sec-label">Log Events — EDR + Proxy</span></div>
+      <div class="log">
+        <div><span class="lt">2024-08-31 23:47:02</span> <span class="lh">[WS-BSILVA-01]</span> <span class="lg">DNS_QUERY</span> <span class="lw">rn1crosoftonline.com</span> → <span class="lr">185.220.101.47</span></div>
+        <div><span class="lt">2024-08-31 23:47:04</span> <span class="lh">[WS-BSILVA-01]</span> HTTP_GET login.microsoftonline.com <span class="lg">200 OK</span> <span class="ld">// auth legítima anterior — mesmo usuário</span></div>
+        <div><span class="lt">2024-08-31 23:51:04</span> <span class="lh">[WS-BSILVA-01]</span> <span class="lr">HTTP_GET rn1crosoftonline.com/oauth2/authorize → 302 redirect</span></div>
+        <div><span class="lt">2024-08-31 23:51:09</span> <span class="lh">[WS-BSILVA-01]</span> <span class="lw">CREDENTIAL_SUBMIT</span> user: bsilva@empresa.com.br <span class="ld">// registrado no proxy</span></div>
+        <div><span class="lt">2024-08-31 23:52:12</span> <span class="lh">[WS-BSILVA-01]</span> <span class="lr">PROCESS_CREATE</span> parent: explorer.exe → child: <span class="lw">OneDriveSetup.exe</span> (hash mismatch)</div>
+        <div><span class="lt">2024-08-31 23:52:15</span> <span class="lh">[WS-BSILVA-01]</span> <span class="lr">HTTP_POST update-srv.ddns.net/gate.php?uid=WS-BSILVA-01&amp;v=2</span> UA: <span class="lw">python-requests/2.31.0</span></div>
+        <div><span class="lt">2024-08-31 23:52:15</span> <span class="lh">[WS-BSILVA-01]</span> <span class="lw">NET_CONN</span> dst: 45.142.212.100:443 <span class="ld">// TLS handshake sem SNI</span></div>
+        <div><span class="lt">2024-08-31 23:57:15</span> <span class="lh">[WS-BSILVA-01]</span> <span class="lr">HTTP_POST update-srv.ddns.net/gate.php</span> <span class="ld">// +300s</span></div>
+        <div><span class="lt">2024-09-01 00:02:15</span> <span class="lh">[WS-BSILVA-01]</span> <span class="lr">HTTP_POST update-srv.ddns.net/gate.php</span> <span class="ld">// +300s</span></div>
+        <div><span class="lt">2024-09-01 00:02:16</span> <span class="lh">[WS-BSILVA-01]</span> <span class="lg">DNS_QUERY</span> api.ipify.org <span class="ld">// 4ª consulta na última hora. Workstation curiosa.</span></div>
+        <div><span class="lt">2024-09-01 00:02:18</span> <span class="lh">[DC-CORP-01]</span>   <span class="ld">// zero eventos relevantes neste servidor. Zero.</span></div>
+        <div><span class="lt">2024-09-01 00:07:19</span> <span class="lh">[WS-BSILVA-01]</span> <span class="ld">FILE_WRITE C:\Users\Public\svchost_backup.exe (0 bytes) // evasão ou placeholder</span></div>
+      </div>
+    </div>
+
+    <!-- OSINT -->
+    <div class="mt-28" style="margin-bottom:40px;">
+      <div class="sec-head"><span class="sec-num">07</span><span class="sec-label">Contexto OSINT</span></div>
+      <div class="osint-grid">
+        <div class="panel">
+          <div class="eyebrow mb-12">rn1crosoftonline.com</div>
+          <div class="orow"><span class="ok2">Registrado em</span><span class="ov">2024-08-22 (9 dias antes)</span></div>
+          <div class="orow"><span class="ok2">Registrar</span><span class="ov">Namecheap · WHOIS privado</span></div>
+          <div class="orow"><span class="ok2">Infra compartilhada</span><span class="ov">45.142.212.100 · 3 outros phishing</span></div>
+          <div class="orow"><span class="ok2">TLS cert</span><span class="ov">Let's Encrypt · emitido 2024-08-22</span></div>
+          <div class="orow"><span class="ok2">ASN</span><span class="ov">AS208761 — Serverius DC, NL</span></div>
+        </div>
+        <div class="panel">
+          <div class="eyebrow mb-12">update-srv.ddns.net</div>
+          <div class="orow"><span class="ok2">Tipo</span><span class="ov">DDNS ativo · dinâmico</span></div>
+          <div class="orow"><span class="ok2">IP atual</span><span class="ov">185.220.101.47</span></div>
+          <div class="orow"><span class="ok2">ASN</span><span class="ov">AS60729 · Tor exit node histórico</span></div>
+          <div class="orow"><span class="ok2">Beacon interval</span><span class="ov">300s fixo · jitter: 0s</span></div>
+          <div class="orow"><span class="ok2">Host origem</span><span class="ov">WS-BSILVA-01 · workstation</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex items-c jc-sb">
+      <p style="color:var(--fog);font-size:13px;font-family:var(--mono);">// Correlacionou tudo? Então vá.</p>
+      <button class="btn btn-primary" onclick="irPerguntas()">Iniciar análise →</button>
+    </div>
+  </div>
+
+  <!-- ══════ TELA 2: PERGUNTAS -->
+  <div class="screen" id="s2">
+    <div class="flex items-c jc-sb mb-32">
+      <div>
+        <div class="eyebrow">// fase 02 · questionário de inteligência</div>
+        <h2>Análise dos Indicadores</h2>
+        <p style="color:var(--mist);font-size:13px;margin-top:8px;font-family:var(--mono);">6 questões. Nenhuma se responde sozinha. Se você está respondendo sem olhar os IOCs, está fazendo errado.</p>
+      </div>
+      <button class="btn btn-ghost" onclick="mostrar('s1')" style="flex-shrink:0;">← Rever IOCs</button>
+    </div>
+    <div id="q-container"></div>
+    <div class="mt-24">
+      <button class="btn btn-warn" onclick="enviar()">⊞ Corrigir análise</button>
+    </div>
+  </div>
+
+  <!-- ══════ TELA 3: RESULTADO -->
+  <div class="screen" id="s3">
+    <div class="eyebrow mb-16">// fase 03 · relatório do analista</div>
+    <h2 class="mb-24">Análise do Analista</h2>
+    <div class="result-row">
+      <div class="score-box" id="score-box">
+        <div class="score-n" id="score-n">0</div>
+        <div class="score-d">de 6</div>
+      </div>
+      <div>
+        <div class="eyebrow mb-12">Classificação</div>
+        <div id="cls-nome" style="font-family:var(--sans);font-size:24px;font-weight:700;color:var(--white);margin-bottom:6px;">—</div>
+        <div id="cls-desc" style="font-size:13px;color:var(--fog);max-width:420px;">—</div>
+      </div>
+    </div>
+    <div class="hr"></div>
+    <div id="review-list"></div>
+    <div class="hr"></div>
+    <div id="cert-zone"></div>
+    <div class="hr"></div>
+    <div style="text-align:center;">
+      <button class="btn btn-ghost" onclick="refazer()">↺ Refazer o desafio</button>
+    </div>
+  </div>
+
+  <!-- ══════ TELA 4: CERTIFICADO -->
+  <div class="screen" id="s4">
+    <div class="eyebrow mb-16">// certificado de conclusão</div>
+    <h2 class="mb-24">Certificado gerado</h2>
+
+    <div id="cert-render">
+      <div class="cert-frame"></div>
+      <div class="cert-frame2"></div>
+      <div class="cert-bg">ThreatLens</div>
+
+      <div class="cert-top">
+        <div class="cert-label">Mariana BS - Be Safe · Plataforma ThreatLens · Exercício Operacional</div>
+        <div class="cert-h1">Certificado de Conclusão</div>
+        <div class="cert-h2">Threat Intelligence — Análise de Indicadores de Comprometimento</div>
+      </div>
+
+      <hr class="cert-sep">
+
+      <div class="cert-mid">
+        <div class="cert-certifica">Certificamos que</div>
+        <div class="cert-nome" id="c-nome">—</div>
+        <div><div class="cert-badge">Desafio de Threat Intelligence — Análise de IOCs</div></div>
+        <div class="cert-corpo" id="c-corpo">—</div>
+      </div>
+
+      <div class="cert-rodape">
+        <div class="cert-dados">
+          <div>
+            <div class="cert-dado-label">Data</div>
+            <div class="cert-dado-val" id="c-data">—</div>
+          </div>
+          <div>
+            <div class="cert-dado-label">ID do Certificado</div>
+            <div class="cert-dado-val" id="c-id">—</div>
+          </div>
+          <div>
+            <div class="cert-dado-label">Aproveitamento</div>
+            <div class="cert-dado-val">6 / 6 · 100%</div>
+          </div>
+        </div>
+        <div class="cert-selo">
+          <div class="cert-selo-ico">🛡</div>
+          <div class="cert-selo-txt">ANÁLISE<br>COMPLETA<br>BE SAFE</div>
+        </div>
+        <div class="cert-assin">
+          <div class="cert-assin-linha"></div>
+          <div class="cert-assin-nome">Mariana BS - Be Safe</div>
+          <div class="cert-assin-cargo">Threat Intelligence</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-24" style="text-align:center;">
+      <button class="btn btn-warn" onclick="baixarCert()">↓ Baixar certificado em PNG</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const _0x9a1f=[[142,"DoXZlbDogbyBhY2Vzc28gYW8gdHlwb3NxdWF0dGluZyBwb2RlIHRlciBzaWRvIGFjaW"],[47,"ucGhwIGUgcG9ydGEgNDQzKTsgPHN0cm9uZz5UMTAzNi4wMDU8L3N0cm9uZz4g4oCUIE9uZURyaXZlU2V0dXAuZX"],[40,"GZpbHRyYXRpb24gT3ZlciBBbHRlcm5hdGl2ZSBQcm90b2NvbCkiLCJrIjoiY2Y2ZTkxODk5NDBjYTI4NzJ"],[8,"TYyODdhOGFjIn0seyJ0IjoiU3BlYXItcGhpc2hpbmcgY29tIGVudHJlZ2EgZGUga"],[89,"yNjg3M2Y0YzNmIn0seyJ0IjoiMTg1LjIyMC4xMDEuNDcg4oCUIElQIHZpc3RvIGVtIGNvbnN1bHRhcyBzdXN"],[160,"ZlbnRvcyBhbsO0bWFsb3MuIDxzdHJvbmc+Qm9hIGFuw6FsaXNlIG7Do28gc3ViZXN0aW1hIG5lbSBzdXBlcmRpbWVuc2l"],[39,"CkgKyBUMTEwNSAoSW5ncmVzcyBUb29sIFRyYW5zZmVyKSArIFQxMDQ4IChFe"],[135,"Xh0byI6IkNvbSBiYXNlIG5hIGFuw6FsaXNlIGNvbXBsZXRhIGRvcyBpbmRpY2Fkb3J"],[157,"IGRlIGNvbXByb21ldGltZW50by4gQiBtaW5pbWl6YSBldmlkw6puY2lhcyBmb3J0ZXMgZ"],[91,"NvbnRleHRvcyBvcGVyYWNpb25haXMuIiwiayI6IjFkMzVhMGE1YTRkMzlkYjAxZjEyMTJhMiJ9LHsidCI6ImQ0MWQ4Y"],[81,"HF1YWwgSU9DIGlzb2xhZG8gc3VzdGVudGEgY29tIG1haW9yIGNvbmZpYW7Dp2EgYSBhYmVydHVyYSBpbWVkaWF0YSBkZ"],[67,"TAxIG1vc3RyYW0gY29tdW5pY2HDp8OjbyBhbsO0bWFsYSBjb3JyZWxhY2l"],[96,"NvbGV0YSBpbmljaWFsIGRlIGNyZWRlbmNpYWlzPC9zdHJvbmc+LCBvIE"],[54,"cyBkb23DrW5pb3MgYWNlc3NhZG9zIGUgbyBjb250ZXh0byBPU0lOVCwgcXVhbCDDqSBvIGF0aXZvIGNvbX"],[136,"lcywgbG9ncywgT1NJTlQgZSBjb3JyZWxhw6fDtWVzLCBxdWFsIGNvbm"],[152,"2YmNlYzA2YzY3NzZmZjg0NjQ2IiwiZXhwIjoiQSBjb25jbHVzw6NvIGNvcnJldGEgw6kgPHN0cm9uZz5EPC9zdHJvbmc+IH"],[46,"NzEuMDAxPC9zdHJvbmc+IOKAlCBiZWFjb25pbmcgdXNhIEhUVFAvSFRUUFMgKGdhdGU"],[85,"2NpYWRhIGEgcGhpc2hpbmcuIiwiayI6IjQ2ZTBhNTkwMTlkN2ZlNjZmNjJmZmM0ZSJ9LHsid"],[146,"yIGltcGFjdG8gZW0gbcO6bHRpcGxvcyBzaXN0ZW1hcywgaW5jbHVzaXZlIG"],[49,"MTA1OS4wMDYgKFB5dGhvbikgY29ycmV0YW1lbnRlLCBtYXMgVDExOTAgKGV4cGxvaXQgZGUgc2VydmnDp28g"],[93,"5obyBpbmNvbXVtLCBkZXBlbmRlbnRlIGRvIHJlc3RhbnRlIGRhIHRlbGVtZXRyaWEgcGFyYSBnYW5oYXIgcGVzby4iLCJr"],[28,"Rlcm5hdGl2YSBCIGNvbmVjdGEgcGhpc2hpbmcg4oaSIGNyZWRlbmNpYWwg4oaSIGltcGxh"],[112,"rIjoiNGYwMTEwODM0Y2JjYmVkOWYzZThiYmNlIn0seyJ0IjoiQ29uc3VsdGFzIH"],[153,"BvcnF1ZSDDqSBhIMO6bmljYSBwcm9wb3JjaW9uYWwgYW8gcXVlIG9zIGR"],[5,"FBTOiBvIGhhc2ggZGUgYXJxdWl2byB2YXppbyBlIG8gcHJvY2Vzc28gT25lRHJpdmVTZ"],[117,"cCBlbSBpbnRlcnZhbG8gZml4byBkZSAzMDBzLCBVc2VyLUFnZW50IHB5dGh"],[76,"ZXN0w6Egbm8gcHJveHkgbG9nIGNvbSB1c3XDoXJpbyBpZGVudGlmaWNhZG8uIDxzdHJvb"],[95,"W8gcmVzdHJpbmdpciBhIGFuw6FsaXNlIGEgPHN0cm9uZz5pbXBlcnNvbmHDp8OjbyBkZSBtYXJjYSBlIG"],[105,"lvbmFsIHBhcmEgZ2FuaGFyIGEgbWVzbWEgY29uZmlhbsOnYS4ifSx7ImlkIjo1LCJ"],[1,"vIGRlIGNvbXVuaWNhw6fDo28gbm9zIGxvZ3MsIG8gVXNlci1BZ2VudCBpZGVudGlm"],[75,"mx0aXBsb3MgaG9zdHMuIEEgc3VibWlzc8OjbyBkZSBjcmVkZW5jaWFpcyDDoHMgMjM6NTE6MDkg"],[73,"mVyIG1vdmltZW50byBsYXRlcmFsIG9uZGUgbsOjbyBleGlzdGUuIE8gY2RuLXRlbGVtZXR"],[139,"FkZSBhbsO0bWFsYSBpbmNvbmNsdXNpdmE6IGEgcHJlc2Vuw6dhIGRlIElPQ3MgbGVnw61"],[150,"zcG9zdGEgaW1lZGlhdGEgZGV2ZSBpbmNsdWlyIGlzb2xhbWVudG8sIGZvcmVu"],[107,"UgZm9ybWEgbWFpcyBjb25jbHVzaXZhIHF1ZSBvIGFkdmVyc8OhcmlvIGVzdGFiZWxlY2V1IGNhbmFsIGRlIGNvbX"],[74,"yeS5henVyZWVkZ2UubmV0IGFwYXJlY2UgY29tIHBhZHLDo28gbm9ybWFsIGVtIG3Du"],[45,"IOKAlCBsaW5rIGRlIHBoaXNoaW5nIG5vIHR5cG9zcXVhdHRpbmc7IDxzdHJvbmc+VDEw"],[82,"SBpbnZlc3RpZ2HDp8OjbyBwb3IgcGhpc2hpbmc/Iiwib3Bjb2VzIjpbeyJ0Ijoicm"],[97,"lPQyBkZSBtYWlvciBjb25maWFuw6dhIMOpIDxzdHJvbmc+cm4xY3Jvc29mdG9ubGluZS5jb208L3N0cm"],[3,"UgbWFpcyBhZGVxdWFkYW1lbnRlIG8gcXVlIG9jb3JyZXUgbmEgd29ya3N0YXRpb24gV1MtQlNJTFZBLTAxPyIsIm9wY2"],[38,"In0seyJ0IjoiVDE1NjYuMDAxIChTcGVhci1waGlzaGluZyB2aWEgQXR0YWNobWVud"],[27,"pIGV2YXPDo28sIG7Do28gcmFuc29td2FyZS4gPHN0cm9uZz5Tw7MgYSBhbH"],[114,"TLUJTSUxWQS0wMSwgaW5kaWNhbmRvIHJlY29uaGVjaW1lbnRvIGNvbnTDrW51byBkZSBJUCBleHRlcm5vIHBhcmEgbWFwZW"],[125,"mVhY29uaW5nIGVtIGludGVydmFsbyBmaXhvIHNlbSBqaXR0ZXI8L3N0cm9uZz4g4oCUIGNhcmFjdGVyw61zdGljYS"],[34,"BMaW5rKSArIFQxMDcxLjAwMSAoV2ViIFByb3RvY29scykgKyBUMTAzNi4wMDUgKE1hdGNoIExlZ2l0aW1hdGUgTm"],[88,"WRhIHBvc3RlcmlvciBhbyBhY2Vzc28gaW5pY2lhbC4iLCJrIjoiNTcxODI3NDQxMDU5MDg"],[83,"4xY3Jvc29mdG9ubGluZS5jb20g4oCUIHR5cG9zcXVhdHRpbmcgZGUgbWFyY2EsIHJlZ"],[134,"uPC9zdHJvbmc+In0seyJpZCI6NiwibnVtIjoiUVVFU1TDg08gMDYiLCJ0Z"],[61,"0uYnIgc3VibWV0ZXIgY3JlZGVuY2lhaXMgZW0gcMOhZ2luYSBkZSBwaGlzaGlu"],[123,"ImFmZmQ4OTRjZmVlZDBiOGQ0YjQyMDE0NiIsImV4cCI6IkEgcmVzcG9zdGEgQyBjb25zb2xpZGEgdHLDqnMgY"],[7,"EgZSBzYcOtZGEgZGUgZGFkb3MgcG9yIGNhbmFsIGxlZ8OtdGltby4iLCJrIjoiZTQyZGE4MTFiNDhmOWJiO"],[30,"iIsInRleHRvIjoiUXVhbCB0w6ljbmljYSBNSVRSRSBBVFQmQ0sg4oCUIG91IGNvbWJpbmHDp8OjbyBkZWxhcyDig"],[101,"cOnw6NvIGltZWRpYXRhLiBPIERETlMgY29tIGJlYWNvbmluZyDDqSBm"],[65,"0cmFkbyBwZWxvIGFkdmVyc8OhcmlvLiIsImsiOiI5YzViMTQ0MTFlZDM3NDYxMWJmMzk1Y2EifSx7InQiOi"],[56,"GV2aWTDqm5jaWFzPyIsIm9wY29lcyI6W3sidCI6IkRDLUNPUlAtMDEgY29tcHJvbWV0aWRvIHZp"],[70,"G9kb3Mgb3MgZXZlbnRvcyBhbsO0bWFsb3Mgb3JpZ2luYW0gZGUgPHN0cm9uZz5XUy1CU0lMVkEtMDE8L3N0cm9uZz"],[2,"aWNhZG8gZSBhIHNlcXXDqm5jaWEgdGVtcG9yYWwgZG9zIGV2ZW50b3MsIHF1YWwgdGlwbyBkZSBhdGFxdWUgZGVzY3Jldm"],[57,"YSBleHBsb3Jhw6fDo28gZGUgc2VydmnDp28gTERBUDsgV1MtQlNJTFZB"],[11,"2ggbWlzbWF0Y2ggaW5pY2lvdSBiZWFjb25pbmcgdmlhIHNjcmlwdCBQeXRob24uIiwiayI6ImU0O"],[17,"dGl0dcOtZG8gcG9yIHZlcnPDo28gbW9kaWZpY2FkYSBxdWUgZXN0YWJlbGVjZSBjYW"],[53,"U1TDg08gMDMiLCJ0ZXh0byI6IkFuYWxpc2FuZG8gb3MgaWRlbnRpZmljYWRvcmVzIGRlIGhvc3RzIG5vcyBsb2dzLCBv"],[66,"JNw7psdGlwbG9zIGF0aXZvcyBjb21wcm9tZXRpZG9zOiBXUy1CU0lMVkEtMDEgZSBEQy1DT1JQL"],[23,"lbG8gZXhwbG9yZXIuZXhlOyAoNCkgYmVhY29uaW5nIGNvbSBVQSBweXRob24tcmVxdWVzdHMvMi4z"],[121,"yb3NvZnRvbmxpbmUuY29tLCBpbmRpY2FuZG8gcG9zc8OtdmVsIHR1bmVsYW1lbnRvIFNTSCBkaXNmYXLDp2Fk"],[127,"cy8yLjMxLjA8L3N0cm9uZz4g4oCUIHNjcmlwdCBhdXRvbWF0aXphZG8"],[19,"mMiOiJlNDk1YWYyYmJiODcxODFmNDFiOTNjY2MiLCJleHAiOiJBIGNvcnJlbGHDp8OjbyBjb3JyZXRhIGV4a"],[68,"vbmFkYSBubyBtZXNtbyBpbnRlcnZhbG8uIiwiayI6ImViNGY5ODUyNWMzYjE3ZWIwYTkxZmZiMSJ9XSwiYyI6ImYyMzQ0Yj"],[109,"gYXDDs3MgbyBjb21wcm9tZXRpbWVudG8gaW5pY2lhbD8iLCJvcGNvZXMiOlt7InQiOiJPbmVEcml"],[33,"bnRvIGRlIGFydGVmYXRvcz8iLCJvcGNvZXMiOlt7InQiOiJUMTU2Ni4wMDIgKFNwZWFyLXBoaXNoaW5nIHZpYS"],[151,"c2UgZSByZXNldCBkZSBjcmVkZW5jaWFpcy4iLCJrIjoiNWFmZjk2YmNlYzA2YzY3NzZmZjg0NjQ2In1dLCJjIjoiNWFmZjk"],[104,"IGluaWNpYWwuIE8gSVAgZSBvIGhhc2ggcHJlY2lzYW0gZGUgY29udGV4dG8gYWRpY2"],[87,"RlIDMwMCBzZWd1bmRvcywgbyBxdWUgc3VnZXJlIGNvbXVuaWNhw6fDo28gYXV0b21hdGl6Y"],[94,"IjoiMzNkOGJjOWUzNDEyYzc0ZDU1MmJkNGJiIn1dLCJjIjoiNDZlMGE1OTAxOWQ3ZmU2NmY2MmZmYzRlIiwiZXhwIjoiQ"],[141,"WVudG8uIiwiayI6IjZjMzk0MmIwZWQ1ZmNiMDNjMTA0ZjczZSJ9LHsidCI6IkZhbHNvIHBvc2l0aXZvIHByb3b"],[72,"ZvaSBpbnNlcmlkbyBwYXJhIGluZHV6aXIgZXJybyBkZSBxdWVtIHF1ZXIgd"],[71,"4uIE8gREMtQ09SUC0wMSByZWdpc3RyYSBsaXRlcmFsbWVudGUgemVybyBldmVudG9zIHJlbGV2YW50ZXMg4oCUIG"],[154,"hZG9zIHJlYWxtZW50ZSBzdXN0ZW50YW06IHBoaXNoaW5nLCBzdWJtaXNz"],[44,"IsImV4cCI6IlNlcXXDqm5jaWEgQVRUJkNLIGNvcnJldGE6IDxzdHJvbmc+VDE1NjYuMDAyPC9zdHJvbmc+"],[106,"udW0iOiJRVUVTVMODTyAwNSIsInRleHRvIjoiUXVhbCBjb25qdW50byBkZSBldmlkw6puY2lhcyBpbmRpY2EgZG"],[98,"9uZz4uIEVsZSBjb21iaW5hIHR5cG9zcXVhdHRpbmcgY2xhcm8sIHJlZ2lzdHJ"],[159,"HRyYXBvbGEgc2VtIGJhc2Ug4oCUIG8gY29udHJvbGFkb3IgZGUgZG9tw61uaW8gbsOjbyBhcHJlc2VudGEgZX"],[12,"TVhZjJiYmI4NzE4MWY0MWI5M2NjYyJ9LHsidCI6IkF0YXF1ZSBkZSBjYWRlaWEgZGUgc3VwcmltZW5"],[102,"b3J0w61zc2ltbyBwYXJhIDxlbT5mYXNlIHDDs3MtY29tcHJvbWV0aW1lbnRv"],[144,"IsImsiOiJkNTEwY2VhMTc1ZDA4ZmRlMzM0MjI5ODAifSx7InQiOiJDb21wcm9tZXRpbWVudG8gZGUgaW5mcmFlc3RydX"],[51,"YWRvLCBmb2kgbGluay4gRCBjaXRhIFJEUCBlIHJhbnNvbXdhcmUsIG5lbmh1bSB"],[60,"V1MtQlNJTFZBLTAxIGNvbXByb21ldGlkYSBhcMOzcyBic2lsdmFAZW1wcmVzYS5jb2"],[113,"JlcGV0aWRhcyBhIGFwaS5pcGlmeS5vcmcgKDR4L2hvcmEpIGEgcGFydGlyIGRlIFd"],[35,"FtZSBvciBMb2NhdGlvbikiLCJrIjoiNmUyN2ZiOWJmZmQ2MmY2MjVhMTYxOWJmIn0seyJ0IjoiVDEwNTku"],[149,"oaXNoaW5nLCBzZWd1aWRvIGRlIGltcGxhbnRlIGNvbSBjYW5hbCBDMiBhdGl2bzsgcmV"],[22,"NlZ3VuZG9zIGRlcG9pcywgT25lRHJpdmVTZXR1cC5leGUgY29tIGhhc2ggbWlzbWF0Y2ggY3JpYWRvIHB"],[15,"siOiJkMjhlMjM3MTYwNzhmNTljYTViZDc0YzMifSx7InQiOiJFeHBsb3Jhw6fDo28gZGUgdnVsbmVyYWJpbGlkYWRlI"],[32,"bWVjYW5pc21vIGRlIHBlcnNpc3TDqm5jaWEgZGUgY29tdW5pY2HDp8OjbyBlIGEgdMOpY25pY2EgZGUgbWFzY2FyYW1l"],[78,"cnRhZG8gcGVsb3MgZGFkb3MuPC9zdHJvbmc+In0seyJpZCI6NCwibnVtIjoiUV"],[86,"CI6InVwZGF0ZS1zcnYuZGRucy5uZXQg4oCUIERETlMgY29tIGludGVydmFsbyBmaXhvIG"],[147,"5vIGNvbnRyb2xhZG9yIGRlIGRvbcOtbmlvLiIsImsiOiIyODQ4MzRjOWY2ODkyMmJhMjFjZTRm"],[4,"9lcyI6W3sidCI6IlJhbnNvbXdhcmUgY29tIGV4ZmlsdHJhw6fDo28gdmlhIEhUV"],[143,"RlbnRhbCBlIG8gcmVzdGFudGUgZG8gdHLDoWZlZ28gYWRtaXRlIGludGVycHJldGHDp8OjbyBiZW5pZ25hLi"],[120,"W5hZG8gY29tIHF1ZXJpZXMgRE5TIGFvIGRvbcOtbmlvIGxlZ8OtdGltbyBsb2dpbi5taWN"],[99,"vIHJlY2VudGUsIFdIT0lTIHByaXZhZG8gZSBpbmZyYWVzdHJ1dHVyYSByZWx"],[6,"XR1cC5leGUgaW5kaWNhbSBwcmVwYXJhw6fDo28gcGFyYSBjcmlwdG9ncmFmaW"],[80,"GltcGVyc29uYcOnw6NvIGRlIG1hcmNhIGUgY29sZXRhIGluaWNpYWwgZGUgY3JlZGVuY2lhaXMsI"],[132,"BsZWfDrXRpbW8gZSBsb2dpbi5taWNyb3NvZnRvbmxpbmUuY29tIMOpIGRvbcOtbmlvIHJlYWwuIDx"],[118,"vbi1yZXF1ZXN0cy8yLjMxLjAgZSBjb25leMOjbyBUTFMgc2VtIFNOSSBwYXJhIDQ1LjE0Mi4yMTIuMTAwLi"],[55,"Byb21ldGlkbyBlIHF1YWwgbyB2ZXRvciBpbmljaWFsIG1haXMgc3Vwb3J0YWRvIHBlbGFzI"],[16,"GVtIFB1VFRZOiBvIGJpbsOhcmlvIGVtIEM6XFxUb29sc1xcIGZvaSBzdWJz"],[62,"ZzsgYWNlc3NvIGFvIERDLUNPUlAtMDEgbsOjbyBlc3TDoSBldmlkZW5jaWFkbyBub3MgbG9"],[130,"FnaW5nIGUgZXZhc8OjbywgbsOjbyBjYW5hbCBwZXJzaXN0ZW50ZS4gQiDDqSByZWNvbmhlY2ltZ"],[59,"byBhZHZlcnPDoXJpby4iLCJrIjoiZjY1OTc1NDBmOGI5N2Q0NTgyNmI3MTdmIn0seyJ0Ijoi"],[24,"MS4wLiBPIGNkbi10ZWxlbWV0cnkuYXp1cmVlZGdlLm5ldCB0ZW0gdHLDoWZlZ28gbm9ybWF"],[26,"hc2ggb3JpZ2luYWwgY29uZmlybWFkby4gc3ZjaG9zdF9iYWNrdXAuZXhlIGNvbSAwIGJ5dGVzIMO"],[48,"hlIGNvbSBoYXNoIG1pc21hdGNoIMOpIG1hc2NhcmFtZW50byBwb3Igbm9tZS4gQSBvcMOnw6NvIEIgY2l0YSBU"],[79,"VFU1TDg08gMDQiLCJ0ZXh0byI6IkNvbnNpZGVyYW5kbyBhcGVuYXMgaW5kw61jaW9zIGRlI"],[31,"JQgbWVsaG9yIHJlcHJlc2VudGEgbyBjb21wb3J0YW1lbnRvIGRvIGFkdmVyc8OhcmlvLCBlc3BlY2lhbG1lbnRlIG8g"],[161,"vbmEgbyBpbmNpZGVudGUuPC9zdHJvbmc+In1d"],[110,"2ZVNldHVwLmV4ZSBjb20gaGFzaCBtaXNtYXRjaCBjcmlhZG8gcGVsbyBleHBsb3Jlci5leGUsIGNvbWJpbm"],[119,"IsImsiOiJhZmZkODk0Y2ZlZWQwYjhkNGI0MjAxNDYifSx7InQiOiJQdVRUWSBlbSBDOlxcVG9vbHNcXCBjb21ia"],[129,"ldG88L3N0cm9uZz4g4oCUIGV2YXPDo28gZGUgaW5zcGXDp8OjbyBUTFMuIEEgYWx0ZXJuYXRpdmEgQSBkZXNjcmV2ZSBzdG"],[84,"2lzdHJvIHJlY2VudGUsIFdIT0lTIHByaXZhZG8gZSBpbmZyYWVzdHJ1dHVyYSBqw6EgYXNzb"],[92,"2Q5OGYwMGIyMDRlOTgwMDk5OGVjZjg0MjdlIOKAlCBoYXNoIGRlIGFycXVpdm8gdmF6aW8gZW0gY2FtaW"],[145,"R1cmEgYW1wbGE6IGjDoSBiYXNlIHN1ZmljaWVudGUgcGFyYSBhZmlybWF"],[63,"ncy4iLCJrIjoiZjIzNDRiMDdlM2RjNTlhODYwNzgzMTJkIn0seyJ0IjoiV1MtQlNJTFZBLTAxIGNvbXByb21ldGlkYSB2"],[155,"w6NvIGRlIGNyZWRlbmNpYWwsIGNyaWHDp8OjbyBkZSBwcm9jZXNzbyBjb20gaGFzaCBkaXZlcmdlbnRlLCBiZWFjb25pbm"],[140,"0aW1vcyBubyBjb25qdW50byBpbXBlZGUgY29uY2x1c8OjbyBvcGVyYWNpb25hbCBjb25macOhdmVsIG5lc3RlIG1vb"],[133,"zdHJvbmc+U2Ugdm9jw6ogY2FpdSBlbSBELCBlcmEgZXhhdGFtZW50ZSBvIG9iamV0aXZvIGRvIGV4ZXJjw61jaW8"],[77,"mc+V1MtQlNJTFZBLTAxIHZpYSBwaGlzaGluZyDDqSBvIMO6bmljbyB2ZXRvciBzdXBv"],[69,"A3ZTNkYzU5YTg2MDc4MzEyZCIsImV4cCI6Ik9zIGxvZ3Mgc8OjbyBleHBsw61jaXRvczogd"],[111,"FkbyBjb20gc3ZjaG9zdF9iYWNrdXAuZXhlIGRlIDAgYnl0ZXMgZW0gQzpcXFVzZXJzXFxQdWJsaWNcXC4iLCJ"],[50,"cMO6YmxpY28pIG7Do28gc2UgYXBsaWNhLiBDIGNpdGEgYXR0YWNobWVudCDigJQgZXJy"],[20,"WdlIG9ic2VydmFyIGEgY2FkZWlhOiAoMSkgRE5TIHF1ZXJ5IHBhcmEgcm4xY3Jvc29mdG9ubGluZS5jb20g4"],[13,"0b3MgdmlhIENETjogbyBkb23DrW5pbyBhenVyZWVkZ2UubmV0IGZvaSBjb21wcm9tZXRpZG8gZSBlbnRyZWdv"],[115,"FtZW50byBkZSByZWRlLiIsImsiOiI1YzQ0YjM3NTdjNTVjNDc4OTcxZTU5ODQifSx7InQiOiJCZWFjb25pbmcg"],[18,"5hbCByZXZlcnNvIHBlcnNpc3RlbnRlLiIsImsiOiJiMWRmNzk5MjZmZWI4NzRlZjE0ZmRkY2MifV0sI"],[25,"sIGVtIG3Dumx0aXBsb3MgaG9zdHMg4oCUIMOpIGRpc3RyYXRvci4gUHVUVFkgdGVtIGh"],[14,"dSBwYXlsb2FkIG1hbGljaW9zbyBtYXNjYXJhZG8gY29tbyB0ZWxlbWV0cmlhLiIsIm"],[29,"bnRlIOKGkiBDMi48L3N0cm9uZz4ifSx7ImlkIjoyLCJudW0iOiJRVUVTVMODTyAwM"],[126,"BjbMOhc3NpY2EgZGUgaW1wbGFudGU7ICgyKSA8c3Ryb25nPnB5dGhvbi1yZXF1ZXN0"],[131,"W50bywgbsOjbyBDMi4gRCDDqSBvIGRpc3RyYXRvciBtYWlzIHNvZmlzdGljYWRvOiBQdVRUWSB0ZW0gaGFzaC"],[128,"sIG7Do28gYnJvd3NlcjsgKDMpIDxzdHJvbmc+VExTIHNlbSBTTkkgcGFyYSBJUCBkaXJ"],[103,"PC9lbT4sIG1hcyBuw6NvIMOpIG8gbWVsaG9yIGluZGljYWRvciBpc29sYWRvIGRlIHBoaXNoaW5n"],[148,"NTkifSx7InQiOiJDb21wcm9tZXRpbWVudG8gY29uZmlybWFkbyBkZSBXUy1CU0lMVkEtMDEgdmlhIHB"],[90,"wZWl0YXMsIG1hcyBxdWUgaXNvbGFkYW1lbnRlIGFpbmRhIGFkbWl0ZSBtw7psdGlwbG9zIG"],[36,"MDA2IChQeXRob24pICsgVDExOTAgKEV4cGxvaXQgUHVibGljLUZhY2luZyBBcHBsaWNhdGlvbik"],[138,"IGRlIGludGVsaWfDqm5jaWEgc29icmUgZXN0ZSBjYXNvPyIsIm9wY29lcyI6W3sidCI6IkF0aXZpZG"],[122,"byBkZSB0csOhZmVnbyBub3JtYWwuIiwiayI6IjgzOWYxMmRkZjNlMDE1MzNjODUzNjJjYyJ9XSwiYyI6"],[10,"IE1pY3Jvc29mdCBlLCBsb2dvIGRlcG9pcywgcHJvY2Vzc28gY29tIGhhc"],[21,"oCUIHR5cG9zcXVhdHRpbmc7ICgyKSBjcmVkZW50aWFsIHN1Ym1pdCBubyBwcm94eSDDoHMgMjM6NTE6MDk7ICgzKSAzIH"],[37,"gKyBUMTAyNyAoT2JmdXNjYXRlZCBGaWxlcykiLCJrIjoiZjEzNWIxZWQyNTk0MTVhMDgyY2I1OWJk"],[124,"XJ0ZWZhdG9zIHF1ZSBqdW50b3MgZGVmaW5lbSBjYW5hbCBDMiBhdGl2bzogKDEpIDxzdHJvbmc+Y"],[0,"W3siaWQiOjEsIm51bSI6IlFVRVNUw4NPIDAxIiwidGV4dG8iOiJDb25zaWRlcmFuZG8gbyBwYWRyw6N"],[137,"NsdXPDo28gYW5hbMOtdGljYSDDqSBtYWlzIGFkZXF1YWRhIHBhcmEgbyByZWxhdMOzcmlv"],[41,"jNGY0ODQwIn0seyJ0IjoiVDEwNzggKFZhbGlkIEFjY291bnRzKSArIFQxMDIxLjAwMSAoU"],[100,"hY2lvbmFkYSBhIGNhbXBhbmhhcyBkZSBwaGlzaGluZywgbyBxdWUgYmFzdGEgcGFyYSBqdXN0aWZpY2FyIGludmVzdGlnY"],[64,"aWEgZG93bmxvYWQgZHJpdmUtYnkgYSBwYXJ0aXIgZGUgY2RuLXRlbGVtZXRyeS5henVyZWVkZ2UubmV0LCBzZXF1ZXN"],[116,"SFRUUCBQT1NUIHBhcmEgdXBkYXRlLXNydi5kZG5zLm5ldC9nYXRlLnBo"],[58,"LTAxIMOpIGFwZW5hcyBwaXbDtCBsYXRlcmFsIGrDoSBlc3RhYmVsZWNpZG8gcGVs"],[156,"cgcmVndWxhciBlIGNvbXVuaWNhw6fDo28gQzIuIEEgb3DDp8OjbyBBIGlnbm9yYSB1bWEgY2FkZWlhIGNvbXBsZXRh"],[108,"VuaWNhw6fDo28gcGVyc2lzdGVudGUgY29tIG8gaG9zdCBjb21wcm9tZXRpZG8"],[52,"kZXNzZXMgcGFkcsO1ZXMgYXBhcmVjZSBub3MgZGFkb3MuIn0seyJpZCI6MywibnVtIjoiUVVF"],[158,"GVtYWlzIHBhcmEgc2VyZW0gdHJhdGFkYXMgY29tbyBhY2lkZW50ZS4gQyBle"],[9,"W1wbGFudGUgQzI6IG8gdXN1w6FyaW8gYWNlc3NvdSB0eXBvc3F1YXR0aW5nIHF1ZSBpbWl0YXZhIGF1dGVudGljYcOnw6Nv"],[42,"mVtb3RlIERlc2t0b3AgUHJvdG9jb2wpICsgVDE0ODYgKERhdGEgRW5jcnlwdGVkIGZvciBJbXBh"],[43,"Y3QpIiwiayI6ImY4Mzk1N2ZhNjEwNjIzZTgwNDNlNmZhNCJ9XSwiYyI6IjZlMjdmYjliZmZkNjJmNjI1YTE2MTliZi"]];
+const _0xabc=function(){
+  const _0xs=_0x9a1f.sort((a,b)=>a[0]-b[0]).map(x=>x[1]).join('');
+  const _0xbin=atob(_0xs);
+  const _0xbytes=Uint8Array.from(_0xbin,c=>c.charCodeAt(0));
+  return JSON.parse(new TextDecoder().decode(_0xbytes));
+};
+var questoes=_0xabc();
+var analista={nome:"",pronome:"",data:""};
+var respostas={};
+var ordemQuestoes=[];
+
+function _0xmix(arr){
+  var a=arr.slice();
+  if(window.crypto&&crypto.getRandomValues){
+    for(var i=a.length-1;i>0;i--){
+      var r=new Uint32Array(1); crypto.getRandomValues(r);
+      var j=r[0]%(i+1); var t=a[i]; a[i]=a[j]; a[j]=t;
+    }
+  } else {
+    for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t;}
+  }
+  return a;
+}
+
+function _0xesc(s){
+  return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});
+}
+
+function mostrar(id) {
+  var telas = document.querySelectorAll(".screen");
+  for (var i = 0; i < telas.length; i++) { telas[i].classList.remove("active"); }
+  document.getElementById(id).classList.add("active");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function iniciar() {
+  var nome = document.getElementById("inp-nome").value.trim();
+  var pronome = document.getElementById("inp-pronome").value.trim();
+  var data = document.getElementById("inp-data").value;
+  if (!nome || !pronome || !data) {
+    alert("Preencha todos os campos. O adversário não espera, mas o formulário sim.");
+    return;
+  }
+  analista.nome = nome;
+  analista.pronome = pronome;
+  analista.data = data;
+  mostrar("s1");
+}
+
+function irPerguntas() {
+  renderPerguntas();
+  var btn = document.getElementById("btn-ioc-action");
+  if (btn) { btn.textContent = "→ Voltar às perguntas"; btn.onclick = function(){ mostrar("s2"); }; }
+  mostrar("s2");
+}
+
+function renderPerguntas() {
+  var c = document.getElementById("q-container");
+  c.innerHTML = "";
+  ordemQuestoes = questoes.map(function(q){
+    var qo = Object.assign({}, q);
+    qo.opcoesRender = _0xmix(q.opcoes).map(function(o,idx){return Object.assign({ltr:String.fromCharCode(65+idx)},o);});
+    return qo;
+  });
+  for (var i = 0; i < ordemQuestoes.length; i++) {
+    var q = ordemQuestoes[i];
+    var block = document.createElement("div");
+    block.className = "q-block";
+    var html = '<div class="q-num">' + _0xesc(q.num) + '</div><div class="q-text">' + q.texto + '</div><div class="opts" id="opts-' + q.id + '">';
+    for (var j = 0; j < q.opcoesRender.length; j++) {
+      var o = q.opcoesRender[j];
+      html += '<div class="opt" data-qid="' + q.id + '" data-token="' + o.k + '" onclick="selecionar(this)"><span class="opt-ltr">' + o.ltr + '</span><span class="opt-txt">' + _0xesc(o.t) + '</span></div>';
+    }
+    html += '</div>';
+    block.innerHTML = html;
+    c.appendChild(block);
+  }
+}
+
+function selecionar(el) {
+  var qid = el.getAttribute("data-qid");
+  var token = el.getAttribute("data-token");
+  var grupo = document.querySelectorAll("#opts-" + qid + " .opt");
+  for (var i = 0; i < grupo.length; i++) { grupo[i].classList.remove("picked"); }
+  el.classList.add("picked");
+  respostas[qid] = token;
+}
+
+function enviar() {
+  var total = 0;
+  for (var k in respostas) { if (Object.prototype.hasOwnProperty.call(respostas, k)) total++; }
+  if (total < questoes.length) {
+    alert("Você tem " + (questoes.length - total) + " questão(ões) sem resposta. Um analista não entrega relatório incompleto.");
+    return;
+  }
+  var btns=document.querySelectorAll('.btn-warn');
+  for(var b=0;b<btns.length;b++){btns[b].disabled=true;}
+  setTimeout(function(){renderResultado(); mostrar("s3"); for(var b=0;b<btns.length;b++){btns[b].disabled=false;}}, 450 + Math.floor(Math.random()*550));
+}
+
+function _0xfindQ(id){for(var i=0;i<questoes.length;i++){if(String(questoes[i].id)===String(id))return questoes[i];} return null;}
+function _0xfindR(id){for(var i=0;i<ordemQuestoes.length;i++){if(String(ordemQuestoes[i].id)===String(id))return ordemQuestoes[i];} return _0xfindQ(id);}
+function _0xoptByToken(q,tk){var list=(q.opcoesRender||q.opcoes||[]); for(var i=0;i<list.length;i++){if(list[i].k===tk)return list[i];} return null;}
+
+function renderResultado() {
+  var score = 0;
+  for (var i = 0; i < questoes.length; i++) {
+    if (respostas[String(questoes[i].id)] === questoes[i].c) score++;
+  }
+
+  var sb = document.getElementById("score-box");
+  document.getElementById("score-n").textContent = score;
+  if (score === 6) { sb.style.borderColor = "var(--ok)"; }
+  else if (score >= 4) { sb.style.borderColor = "var(--signal)"; }
+  else if (score >= 3) { sb.style.borderColor = "var(--warn)"; }
+  else { sb.style.borderColor = "var(--risk)"; }
+
+  var classes = [
+    { min: 0, max: 2, nome: "Observador Passivo", desc: "Você viu os dados. Os dados não te viram de volta. Próxima vez correlaciona antes de responder.", ico: "👁" },
+    { min: 3, max: 4, nome: "Analista em Evolução", desc: "Você capturou parte da cadeia — mas o adversário saiu por uma porta que você não estava olhando.", ico: "📡" },
+    { min: 5, max: 5, nome: "Analista Consistente", desc: "Sólido. Você entendeu o jogo — mas um IOC escapou. Na vida real, esse pode ser o movimento lateral.", ico: "🔍" },
+    { min: 6, max: 6, nome: "Analista de Inteligência", desc: "Correlação perfeita. Você não foi enganado pelo ruído, resistiu aos falsos positivos e montou a cadeia correta.", ico: "🛡" }
+  ];
+  var cls = classes[0];
+  for (var c = 0; c < classes.length; c++) {
+    if (score >= classes[c].min && score <= classes[c].max) { cls = classes[c]; break; }
+  }
+  document.getElementById("cls-nome").textContent = cls.ico + " " + cls.nome;
+  document.getElementById("cls-desc").textContent = cls.desc;
+
+  var rl = document.getElementById("review-list");
+  rl.innerHTML = '<h2 style="margin-bottom:16px;">Questões comentadas</h2>';
+  for (var qi = 0; qi < questoes.length; qi++) {
+    var q = _0xfindR(questoes[qi].id);
+    var escolha = respostas[String(q.id)];
+    var acertou = (escolha === q.c);
+    var optEscolha = _0xoptByToken(q, escolha);
+    var optCorreta = _0xoptByToken(q, q.c) || _0xoptByToken(_0xfindQ(q.id), q.c);
+    var letraEscolha = optEscolha && optEscolha.ltr ? optEscolha.ltr : "—";
+    var letraCorreta = optCorreta && optCorreta.ltr ? optCorreta.ltr : "✓";
+    var card = document.createElement("div");
+    card.className = "review-card " + (acertou ? "hit" : "miss");
+    var wrongLine = "";
+    if (!acertou && optCorreta) {
+      wrongLine = '<div class="ra ra-ok">✓ Correta: ' + letraCorreta + ' — ' + _0xesc(optCorreta.t.substring(0, 70)) + '...</div>';
+    }
+    var chosenText = optEscolha ? _0xesc(optEscolha.t.substring(0, 70)) + "..." : "—";
+    card.innerHTML =
+      '<div class="rq">' + _0xesc(q.num) + ' — ' + _0xesc(q.texto.replace(/<[^>]+>/g, '').substring(0, 90)) + '...</div>' +
+      '<div class="ra ' + (acertou ? "ra-ok" : "ra-miss") + '">' + (acertou ? "✓" : "✗") + ' Sua resposta: ' + letraEscolha + ' — ' + chosenText + '</div>' +
+      wrongLine +
+      '<div class="rexp">' + q.exp + '</div>';
+    rl.appendChild(card);
+  }
+
+  var cz = document.getElementById("cert-zone");
+  if (score === 6) {
+    cz.innerHTML =
+      '<div class="panel panel-ok" style="text-align:center;padding:36px;">' +
+      '<div style="font-size:36px;margin-bottom:12px;">🛡</div>' +
+      '<h2 style="color:var(--ok);margin-bottom:8px;">Aproveitamento máximo</h2>' +
+      '<p style="color:var(--fog);font-size:13px;margin-bottom:24px;">Você correlacionou todos os indicadores corretamente. Certificado disponível.</p>' +
+      '<button class="btn btn-primary" onclick="gerarCertificado()">Gerar certificado →</button>' +
+      '</div>';
+  } else {
+    cz.innerHTML =
+      '<div class="blocked">' +
+      '<div style="font-size:36px;margin-bottom:14px;">🔒</div>' +
+      '<h2 style="color:var(--risk);margin-bottom:8px;">Certificado bloqueado</h2>' +
+      '<p style="color:var(--fog);font-size:13px;">O certificado exige 6/6 acertos. Você obteve ' + score + '/6.<br>' +
+      '<span style="font-size:11px;font-family:var(--mono);">// A inteligência não é sobre tentar. É sobre acertar.</span></p>' +
+      '</div>';
+  }
+}
+
+function gerarCertificado() {
+  document.getElementById("c-nome").textContent = analista.nome;
+  var d = new Date(analista.data + "T12:00:00");
+  var meses = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+  document.getElementById("c-data").textContent = d.getDate() + " de " + meses[d.getMonth()] + " de " + d.getFullYear();
+  document.getElementById("c-id").textContent = "TL-" + gerarHash(analista.nome + analista.data + String(Date.now()).slice(-4));
+  document.getElementById("c-corpo").textContent =
+    "Certificamos que " + analista.nome + " (" + analista.pronome + ") concluiu com aproveitamento máximo o Desafio de Threat Intelligence – Análise de IOCs, " +
+    "demonstrando capacidade de correlacionar indicadores, interpretar sinais de ameaça e construir análises coerentes em contexto operacional.";
+  mostrar("s4");
+}
+
+function gerarHash(str) {
+  var hash = 0;
+  for (var i = 0; i < str.length; i++) {
+    var ch = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + ch;
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString(16).toUpperCase().padStart(8, "0");
+}
+
+function baixarCert() {
+  var el = document.getElementById("cert-render");
+  html2canvas(el, { scale: 3, backgroundColor: "#faf7f0", useCORS: true, allowTaint: true, logging: false }).then(function(canvas) {
+    var a = document.createElement("a");
+    a.download = "certificado-cti.png";
+    a.href = canvas.toDataURL("image/png");
+    a.click();
+  });
+}
+
+function refazer() {
+  respostas = {};
+  ordemQuestoes = [];
+  document.getElementById("q-container").innerHTML = "";
+  var btn = document.getElementById("btn-ioc-action");
+  if (btn) { btn.textContent = "Ir para análise →"; btn.onclick = irPerguntas; }
+  mostrar("s0");
+}
+
+document.getElementById("inp-data").valueAsDate = new Date();
+</script>
+</body>
+</html>
